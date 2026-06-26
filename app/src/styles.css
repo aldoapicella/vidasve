@@ -1261,7 +1261,7 @@ svg {
 .mapStatus {
   position: absolute;
   left: 18px;
-  bottom: 80px;
+  bottom: 126px;
   z-index: 22;
   display: flex;
   gap: 10px;
@@ -1679,7 +1679,7 @@ svg {
 .mapEmptyState {
   position: absolute;
   left: 18px;
-  bottom: 142px;
+  bottom: 206px;
   z-index: 22;
   max-width: 330px;
   padding: 12px 14px;
