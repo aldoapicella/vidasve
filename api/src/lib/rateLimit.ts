@@ -30,6 +30,7 @@ const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
   reopen_claim: commonMutationLimits(10, 15, 10, 5, 30),
   risk_update: commonMutationLimits(20, 30, 20, 10, 60),
   new_signs_of_life: commonMutationLimits(20, 30, 20, 10, 60),
+  public_post: commonMutationLimits(10, 15, 10, 8, 30),
   owner_event: [
     { key: "ipHash", windowSeconds: 3600, max: 20, label: "ip" },
     { key: "reportCode", windowSeconds: 600, max: 15, label: "report" }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CreateReportInput, EventType, GeoPoint, LocationAccuracy, PeopleCount, PersonStatus, PublicPerson, ReportType } from "./types.js";
+import type { ChallengeSubmission, CreateReportInput, EventType, GeoPoint, LocationAccuracy, PeopleCount, PersonStatus, PublicPerson, PublicPostType, ReportType } from "./types.js";
 import { sanitizeText } from "./sanitize.js";
 
 const REPORT_TYPES = new Set<ReportType>([
@@ -11,6 +11,7 @@ const REPORT_TYPES = new Set<ReportType>([
 const ACCURACY = new Set<LocationAccuracy>(["exact", "approximate", "zone_only"]);
 const PEOPLE = new Set<PeopleCount>(["1", "2-5", "more_than_5", "unknown"]);
 const PERSON_STATUSES = new Set<PersonStatus>(["trapped", "missing", "signals_of_life", "found", "needs_verification"]);
+const POST_TYPES = new Set<PublicPostType>(["story", "photo", "flyer", "screenshot", "pdf", "update"]);
 const PUBLIC_EVENT_TYPES = new Set<EventType>([
   "add_info",
   "nearby_help",
@@ -144,6 +145,31 @@ export function parseOwnerEvent(body: unknown): { type: EventType; message: stri
     ownerToken: sanitizeText(value.ownerToken, 240),
     deviceId: sanitizeText(value.deviceId, 120),
     challenge: value.challenge as CreateReportInput["challenge"]
+  };
+}
+
+export function parsePublicPost(body: unknown): {
+  text: string;
+  postType: PublicPostType;
+  personId?: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  tags: string[];
+  contact?: string;
+  deviceId?: string;
+  challenge: ChallengeSubmission;
+} {
+  const value = asRecord(body);
+  return {
+    text: sanitizeText(value.text ?? value.message, 900),
+    postType: POST_TYPES.has(value.postType as PublicPostType) ? (value.postType as PublicPostType) : "story",
+    personId: sanitizeText(value.personId, 80),
+    mediaUrl: sanitizeText(value.mediaUrl, 500),
+    thumbnailUrl: sanitizeText(value.thumbnailUrl, 500),
+    tags: Array.isArray(value.tags) ? value.tags.map((tag) => sanitizeText(tag, 40)).filter(Boolean).slice(0, 8) : [],
+    contact: sanitizeText(value.contact, 160),
+    deviceId: sanitizeText(value.deviceId, 120),
+    challenge: value.challenge as ChallengeSubmission
   };
 }
 

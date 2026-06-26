@@ -1,6 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { json, options } from "../lib/cors.js";
-import { publicReport, sanitizeText } from "../lib/sanitize.js";
+import { publicPost, publicReport, sanitizeText } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import type { PublicPerson, Report } from "../lib/types.js";
 
@@ -11,13 +11,22 @@ app.http("search", {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     if (request.method === "OPTIONS") return options(request);
     const query = sanitizeText(request.query.get("q"), 120).toLowerCase();
-    if (query.length < 2) return json(request, 200, { reports: [], people: [], locations: [] });
+    if (query.length < 2) return json(request, 200, { reports: [], people: [], posts: [], locations: [] });
 
-    const reports = await getStore().listReports({ limit: 500 });
+    const store = getStore();
+    const reports = await store.listReports({ limit: 500 });
     const matches = reports.filter((report) => matchesReport(report, query));
+    // ponytail: scan recent report events for MVP; add an indexed posts container when search volume hurts.
+    const posts = (await Promise.all(reports.map(async (report) => {
+      const events = await store.listEvents(report.id);
+      return events
+        .filter((event) => event.public && event.type === "public_post" && (event.message ?? "").toLowerCase().includes(query))
+        .map((event) => publicPost(event, report));
+    }))).flat();
     return json(request, 200, {
       reports: matches.map(publicReport).slice(0, 25),
       people: matches.flatMap((report) => matchingPeople(report, query)).slice(0, 25),
+      posts: posts.slice(0, 25),
       locations: matches.map((report) => ({
         code: report.code,
         addressText: report.addressText,

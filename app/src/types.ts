@@ -14,7 +14,8 @@ export type EventType =
   | "risk_update"
   | "new_signs_of_life"
   | "owner_resolved"
-  | "owner_reopened";
+  | "owner_reopened"
+  | "public_post";
 
 export interface PublicConfig {
   defaultCenter: [number, number];
@@ -25,6 +26,7 @@ export interface PublicConfig {
 }
 
 export type PersonStatus = "trapped" | "missing" | "signals_of_life" | "found" | "needs_verification";
+export type PublicPostType = "story" | "photo" | "flyer" | "screenshot" | "pdf" | "update";
 
 export interface PublicPerson {
   id: string;
@@ -77,7 +79,31 @@ export interface PublicEvent {
   type: EventType;
   message?: string;
   reason?: string | null;
+  postType?: PublicPostType;
+  personId?: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  tags?: string[];
   public: boolean;
   abuseScore: number;
   createdAt: string;
+}
+
+export interface PublicPost {
+  id: string;
+  reportCode: string;
+  reportId: string;
+  personId?: string;
+  text: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  type: PublicPostType;
+  tags: string[];
+  createdAt: string;
+  report: {
+    code: string;
+    addressText: string;
+    priority: "P1" | "P2" | "P3";
+    derivedStatus: string;
+  };
 }

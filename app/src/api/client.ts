@@ -1,4 +1,4 @@
-import type { EventType, PublicConfig, PublicEvent, PublicReport } from "../types";
+import type { EventType, PublicConfig, PublicEvent, PublicPost, PublicReport } from "../types";
 import type { Challenge, PowAction } from "../lib/pow";
 import { solvePow } from "../lib/pow";
 import { getDeviceId } from "../lib/deviceId";
@@ -31,6 +31,10 @@ export async function getReport(code: string): Promise<{ report: PublicReport; e
   return request(`/reports/${code}`);
 }
 
+export async function listPosts(): Promise<{ items: PublicPost[]; truncated: boolean; limit: number }> {
+  return request("/posts?limit=50");
+}
+
 export async function createReport(payload: Record<string, unknown>): Promise<{
   ok: boolean;
   code: string;
@@ -56,6 +60,14 @@ export async function createEvent(code: string, type: EventType, payload: Record
       body: JSON.stringify({ ...payload, type, ownerToken, deviceId: getDeviceId(), challenge })
     }
   );
+}
+
+export async function createPost(code: string, payload: Record<string, unknown>) {
+  const challenge = await proof("public_post");
+  return request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
+    method: "POST",
+    body: JSON.stringify({ ...payload, deviceId: getDeviceId(), challenge })
+  });
 }
 
 async function proof(action: PowAction): Promise<{ challenge: Challenge; solution: string }> {

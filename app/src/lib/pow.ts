@@ -10,7 +10,8 @@ export type PowAction =
   | "abuse_flag"
   | "risk_update"
   | "new_signs_of_life"
-  | "owner_event";
+  | "owner_event"
+  | "public_post";
 
 export interface Challenge {
   nonce: string;

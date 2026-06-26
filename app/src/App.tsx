@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createEvent, getConfig, getReport, listReports } from "./api/client";
+import { createEvent, createPost, getConfig, getReport, listPosts, listReports } from "./api/client";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
 import { MapView } from "./components/MapView";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
-import type { PublicConfig, PublicEvent, PublicReport } from "./types";
+import type { PublicConfig, PublicEvent, PublicPost, PublicPostType, PublicReport } from "./types";
 
 const DEFAULT_AFFECTED_ZONES: PublicConfig["allowedBboxes"] = [
   { name: "Caracas", minLng: -67.24, minLat: 10.34, maxLng: -66.72, maxLat: 10.62 },
@@ -120,6 +120,7 @@ export function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<PublicReport | null>(null);
   const [events, setEvents] = useState<PublicEvent[]>([]);
+  const [feedPosts, setFeedPosts] = useState<PublicPost[]>([]);
   const [reportsTruncated, setReportsTruncated] = useState(false);
   const [reportsLimit, setReportsLimit] = useState(500);
   const [createOpen, setCreateOpen] = useState(location.pathname === "/reportar");
@@ -153,7 +154,7 @@ export function App() {
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
-  const searchResults = useMemo(() => searchPublicContent(searchTerm, scopedReports), [searchTerm, scopedReports]);
+  const searchResults = useMemo(() => searchPublicContent(searchTerm, scopedReports, feedPosts), [feedPosts, searchTerm, scopedReports]);
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -186,9 +187,23 @@ export function App() {
     }
   }, []);
 
+  const refreshPosts = useCallback(async () => {
+    try {
+      setFeedPosts((await listPosts()).items);
+    } catch {
+      setFeedPosts([]);
+    }
+  }, []);
+
   useEffect(() => {
-    if (showFeed) void refreshReports(undefined, filter);
-  }, [filter, refreshReports, showFeed]);
+    void refreshPosts();
+  }, [refreshPosts]);
+
+  useEffect(() => {
+    if (!showFeed) return;
+    void refreshReports(undefined, filter);
+    void refreshPosts();
+  }, [filter, refreshPosts, refreshReports, showFeed]);
 
   async function selectReport(report: PublicReport) {
     setSelected(report);
@@ -207,6 +222,12 @@ export function App() {
     const response = await createEvent(selected.code, type, { message, reason }, selectedOwnerToken);
     setSelected(response.report);
     setEvents((current) => [...current, response.event]);
+  }
+
+  async function publishPost(code: string, payload: Record<string, unknown>) {
+    await createPost(code, payload);
+    await refreshPosts();
+    showToast("Publicacion guardada.");
   }
 
   const handleMapClick = useCallback((location: [number, number]) => {
@@ -252,6 +273,7 @@ export function App() {
         {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={(code) => { window.location.href = `/r/${code}`; }} /> : null}
         <PublicFeed
           reports={visibleReports}
+          posts={feedPosts}
           mediaUploadsEnabled={config.features.mediaUploads}
           onUpload={() => setUploadOpen(true)}
           onReport={() => setCreateOpen(true)}
@@ -269,7 +291,14 @@ export function App() {
             }}
           />
         ) : null}
-        {uploadOpen ? <UploadPublicationModal enabled={config.features.mediaUploads} onClose={() => setUploadOpen(false)} /> : null}
+        {uploadOpen ? (
+          <UploadPublicationModal
+            enabled={config.features.mediaUploads}
+            reports={visibleReports}
+            onClose={() => setUploadOpen(false)}
+            onSubmit={publishPost}
+          />
+        ) : null}
         {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
         {toast ? <Toast message={toast} /> : null}
       </main>
@@ -361,7 +390,14 @@ export function App() {
       ) : null}
 
       {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
-      {uploadOpen ? <UploadPublicationModal enabled={config.features.mediaUploads} onClose={() => setUploadOpen(false)} /> : null}
+      {uploadOpen ? (
+        <UploadPublicationModal
+          enabled={config.features.mediaUploads}
+          reports={visibleReports}
+          onClose={() => setUploadOpen(false)}
+          onSubmit={publishPost}
+        />
+      ) : null}
 
       {selected ? (
         <ReportDetailDrawer
@@ -504,6 +540,7 @@ function SearchOverlay({
     <section className="searchOverlay" aria-label="Resultados de busqueda">
       <SearchGroup title="Personas" items={results.people} onOpenReport={onOpenReport} />
       <SearchGroup title="Reportes" items={results.reports} onOpenReport={onOpenReport} />
+      <SearchGroup title="Publicaciones" items={results.posts} onOpenReport={onOpenReport} />
       <SearchGroup title="Ubicaciones" items={results.locations} onOpenReport={onOpenReport} />
       <a className="viewAllResults" href="/feed">Ver todos los resultados</a>
     </section>
@@ -689,11 +726,13 @@ function FlyerCard({ name }: { name: string }) {
 
 function PublicFeed({
   reports,
+  posts,
   mediaUploadsEnabled,
   onUpload,
   onReport
 }: {
   reports: PublicReport[];
+  posts: PublicPost[];
   mediaUploadsEnabled: boolean;
   onUpload: () => void;
   onReport: () => void;
@@ -714,12 +753,8 @@ function PublicFeed({
         </select>
       </div>
       <div className="feedComposer">
-        {mediaUploadsEnabled ? (
-          <>
-            <button type="button" onClick={onUpload}>Cargar historia</button>
-            <button type="button" onClick={onUpload}>Subir foto</button>
-          </>
-        ) : <span className="uploadDisabledNote">Uploads desactivados</span>}
+        <button type="button" onClick={onUpload}>Publicar historia/flyer</button>
+        {!mediaUploadsEnabled ? <span className="uploadDisabledNote">Archivos desactivados; texto disponible</span> : null}
         <button type="button" onClick={onReport}>Reportar emergencia</button>
       </div>
       <article className="signalFeedCard">
@@ -738,7 +773,7 @@ function PublicFeed({
         </div>
         <span className="riskBadge">{urgentCount} activos</span>
       </article>
-      {reports.length ? reports.map((report) => <FeedPost key={report.code} report={report} />) : <FeedEmptyState />}
+      {posts.length ? posts.map((post) => <FeedPost key={post.id} post={post} />) : reports.length ? reports.map((report) => <ReportFeedPost key={report.code} report={report} />) : <FeedEmptyState />}
     </section>
   );
 }
@@ -752,7 +787,37 @@ function FeedEmptyState() {
   );
 }
 
-function FeedPost({ report }: { report: PublicReport }) {
+function FeedPost({ post }: { post: PublicPost }) {
+  return (
+    <article className="feedPost">
+      <article className="flyerCard reportBadge">
+        <strong>{post.type.toUpperCase()}</strong>
+        <span>{post.report.code}</span>
+        <small>{post.report.priority}</small>
+      </article>
+      <div className="postBody">
+        <header>
+          <Avatar initials={post.report.code.slice(-2)} color="#f0c7b8" />
+          <strong>{postLabel(post.type)}</strong>
+          <span>{post.report.code}</span>
+          <time>{new Date(post.createdAt).toLocaleString()}</time>
+        </header>
+        <p>{post.text}</p>
+        <div className="postTags">
+          <span>{post.report.addressText}</span>
+          <b>{post.report.priority}</b>
+          {post.tags.map((tag) => <b key={tag}>{tag}</b>)}
+        </div>
+        <footer>
+          <a className="feedAction" href={`/r/${post.report.code}`}>Abrir ficha</a>
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/r/${post.report.code}`)}>Compartir</button>
+        </footer>
+      </div>
+    </article>
+  );
+}
+
+function ReportFeedPost({ report }: { report: PublicReport }) {
   const firstPerson = report.persons?.[0];
   return (
     <article className="feedPost">
@@ -797,39 +862,102 @@ function ReportBadge({ report }: { report: PublicReport }) {
   );
 }
 
-function UploadPublicationModal({ enabled, onClose }: { enabled: boolean; onClose: () => void }) {
+function UploadPublicationModal({
+  enabled,
+  reports,
+  onClose,
+  onSubmit
+}: {
+  enabled: boolean;
+  reports: PublicReport[];
+  onClose: () => void;
+  onSubmit: (code: string, payload: Record<string, unknown>) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reportCode, setReportCode] = useState(reports[0]?.code ?? "");
+  const selectedReport = reports.find((report) => report.code === reportCode);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reportCode) return;
+    setBusy(true);
+    setError(null);
+    const form = new FormData(event.currentTarget);
+    try {
+      await onSubmit(reportCode, {
+        text: form.get("text"),
+        postType: form.get("postType"),
+        personId: form.get("personId") || undefined,
+        tags: form.getAll("tags")
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo publicar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="upload-title">
-      <form className="modal uploadModal">
+      <form className="modal uploadModal" onSubmit={submit}>
         <header>
           <div>
             <span className="eyebrow">Publicacion familiar</span>
-            <h1 id="upload-title">Cargar historia, foto o flyer</h1>
-            <p className="helperText">{enabled ? "Sube carteles, historias o fotos ya compartidas por familiares." : "Uploads no estan activados en este ambiente."}</p>
+            <h1 id="upload-title">Publicar historia o flyer</h1>
+            <p className="helperText">{enabled ? "Publica informacion y luego asocia archivo cuando Blob este activo." : "En este ambiente se guarda texto publico; archivos siguen desactivados."}</p>
           </div>
           <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
         </header>
-        {enabled ? (
+        {reports.length ? (
           <>
             <label>
-              Archivo
-              <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+              Reporte
+              <select value={reportCode} onChange={(event) => setReportCode(event.target.value)} required>
+                {reports.map((report) => <option key={report.code} value={report.code}>{report.code} · {report.addressText}</option>)}
+              </select>
             </label>
             <label>
-              Titulo
-              <input placeholder="SE BUSCA - nombre de la persona" />
+              Persona relacionada
+              <select name="personId" defaultValue="">
+                <option value="">Reporte completo</option>
+                {selectedReport?.persons?.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
+              </select>
             </label>
+            <div className="inlineFields">
+              <label>
+                Tipo
+                <select name="postType" defaultValue="story">
+                  <option value="story">Historia</option>
+                  <option value="flyer">Flyer</option>
+                  <option value="photo">Foto</option>
+                  <option value="update">Actualizacion</option>
+                </select>
+              </label>
+              <label>
+                Etiqueta
+                <select name="tags" defaultValue="">
+                  <option value="">Sin etiqueta</option>
+                  <option value="familia">Familia</option>
+                  <option value="testigo">Testigo</option>
+                  <option value="senales">Senales de vida</option>
+                  <option value="verificar">Necesita verificacion</option>
+                </select>
+              </label>
+            </div>
             <label>
-              Texto/caption publico
-              <textarea required rows={4} placeholder="Nombre, ubicacion y contexto para que pueda encontrarse en busqueda." />
+              Texto publico
+              <textarea name="text" required rows={4} maxLength={900} placeholder="Nombre, ubicacion, contexto, ultimo contacto o texto del flyer." />
             </label>
             <p className="safetyNote">Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
           </>
         ) : (
-          <p className="safetyNote">Activa `MEDIA_UPLOADS_ENABLED=true` y configura Azure Blob Storage antes de aceptar archivos publicos.</p>
+          <p className="safetyNote">Crea o carga un reporte real antes de publicar historias o flyers.</p>
         )}
+        {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="actions stickyActions">
-          {enabled ? <button type="button" onClick={onClose}>Publicar</button> : null}
+          {reports.length ? <button type="submit" disabled={busy}>{busy ? "Publicando..." : "Publicar"}</button> : null}
           <button className="ghost" type="button" onClick={onClose}>Cancelar</button>
         </div>
       </form>
@@ -889,9 +1017,9 @@ interface SearchItem {
   detail?: string;
 }
 
-function searchPublicContent(term: string, reports: PublicReport[]) {
+function searchPublicContent(term: string, reports: PublicReport[], posts: PublicPost[] = []) {
   const needle = term.trim().toLowerCase();
-  if (!needle) return { reports: [], locations: [], people: [] };
+  if (!needle) return { reports: [], locations: [], people: [], posts: [] };
   const includes = (value: string | undefined) => value?.toLowerCase().includes(needle);
   const matches = reports.filter((report) => reportSearchValues(report).some(includes));
   const people = matches.flatMap((report) =>
@@ -925,7 +1053,16 @@ function searchPublicContent(term: string, reports: PublicReport[]) {
       code: report.code,
       label: report.addressText,
       detail: report.landmark || report.area || report.city || report.code
-    })).filter((item) => item.label).slice(0, 5)
+    })).filter((item) => item.label).slice(0, 5),
+    posts: posts
+      .filter((post) => [post.text, post.report.addressText, post.report.code, ...post.tags].some(includes))
+      .map((post) => ({
+        key: `post-${post.id}`,
+        code: post.report.code,
+        label: post.text,
+        detail: `${postLabel(post.type)} · ${post.report.addressText}`
+      }))
+      .slice(0, 5)
   };
 }
 
@@ -957,6 +1094,18 @@ function labelForType(type: PublicReport["type"]): string {
     missing_last_seen: "Ultima ubicacion",
     voices_or_hits: "Voces o golpes",
     collapsed_building_unknown: "Estructura colapsada"
+  };
+  return labels[type];
+}
+
+function postLabel(type: PublicPostType): string {
+  const labels: Record<PublicPostType, string> = {
+    story: "Historia familiar",
+    photo: "Foto",
+    flyer: "Flyer",
+    screenshot: "Captura",
+    pdf: "PDF",
+    update: "Actualizacion"
   };
   return labels[type];
 }

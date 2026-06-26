@@ -17,7 +17,8 @@ export type EventType =
   | "owner_add_info"
   | "owner_resolved"
   | "owner_reopened"
-  | "owner_contact_update";
+  | "owner_contact_update"
+  | "public_post";
 
 export type PublicAction =
   | "create_report"
@@ -30,7 +31,8 @@ export type PublicAction =
   | "risk_update"
   | "new_signs_of_life"
   | "owner_event"
-  | "maps_token";
+  | "maps_token"
+  | "public_post";
 
 export type LocationAccuracy = "exact" | "approximate" | "zone_only";
 export type PeopleCount = "1" | "2-5" | "more_than_5" | "unknown";
@@ -61,6 +63,11 @@ export interface ReportEvent {
   type: EventType;
   message?: string;
   reason?: string | null;
+  postType?: PublicPostType;
+  personId?: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  tags?: string[];
   public: boolean;
   actor: Actor;
   abuseScore: number;
@@ -85,6 +92,27 @@ export interface PublicPerson {
   publicContactName?: string;
   publicContactPhone?: string;
   publicContactRelationship?: string;
+}
+
+export type PublicPostType = "story" | "photo" | "flyer" | "screenshot" | "pdf" | "update";
+
+export interface PublicPost {
+  id: string;
+  reportCode: string;
+  reportId: string;
+  personId?: string;
+  text: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  type: PublicPostType;
+  tags: string[];
+  createdAt: string;
+  report: {
+    code: string;
+    addressText: string;
+    priority: Priority;
+    derivedStatus: DerivedStatus;
+  };
 }
 
 export interface Report {

@@ -196,9 +196,10 @@ Pruebas incluidas:
 - Dedupe basico al crear reporte.
 - Contactos no salen en respuestas publicas por defecto.
 - Personas publicas por reporte en `persons[]` con busqueda por persona, ubicacion o codigo.
-- Endpoint publico `GET /api/search?q=<texto>` para buscar reportes, personas y ubicaciones sin exponer contactos privados.
+- Publicaciones familiares de texto append-only sobre reportes reales.
+- Endpoint publico `GET /api/search?q=<texto>` para buscar reportes, personas, publicaciones y ubicaciones sin exponer contactos privados.
 - Mapa limitado a las zonas afectadas configuradas en `ALLOWED_BBOXES_JSON`.
 - Boton publico para abuso y senales de vida nuevas.
 - Retencion configurable de reportes y eventos.
 - Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.
-- Media uploads desactivado por feature flag.
+- Uploads de archivo/media desactivados por feature flag; las publicaciones de texto funcionan sin Blob Storage.

@@ -13,7 +13,8 @@ export const ACTION_DIFFICULTY: Record<PublicAction, number> = {
   new_signs_of_life: 16,
   reopen_claim: 17,
   owner_event: 16,
-  maps_token: 10
+  maps_token: 10,
+  public_post: 16
 };
 
 const MAX_AGE_MS = 5 * 60 * 1000;

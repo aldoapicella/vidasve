@@ -1,4 +1,4 @@
-import type { Report, ReportEvent } from "./types.js";
+import type { PublicPost, Report, ReportEvent } from "./types.js";
 
 export function sanitizeText(value: unknown, max = 600): string {
   return String(value ?? "")
@@ -31,4 +31,25 @@ export function publicEvent(event: ReportEvent): Omit<ReportEvent, "actor"> {
   const { actor, ...safe } = event;
   void actor;
   return safe;
+}
+
+export function publicPost(event: ReportEvent, report: Report): PublicPost {
+  return {
+    id: event.id,
+    reportCode: report.code,
+    reportId: report.id,
+    personId: event.personId,
+    text: event.message ?? "",
+    mediaUrl: event.mediaUrl,
+    thumbnailUrl: event.thumbnailUrl,
+    type: event.postType ?? "story",
+    tags: event.tags ?? [],
+    createdAt: event.createdAt,
+    report: {
+      code: report.code,
+      addressText: report.addressText,
+      priority: report.priority,
+      derivedStatus: report.derivedStatus
+    }
+  };
 }
