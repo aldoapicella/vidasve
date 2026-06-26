@@ -70,6 +70,7 @@ DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
 No configures Azure Maps subscription key en la SPA. El frontend pide `/api/maps/token` y la Function obtiene el token con Managed Identity.
+`ALLOWED_BBOXES_JSON` define las zonas afectadas visibles e interactivas del mapa. Por defecto cubre Caracas y La Guaira; agrega nuevos bboxes ahi cuando operaciones confirme otras zonas.
 Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el area. No hay clustering server-side todavia.
 
 ## Infraestructura
@@ -187,6 +188,7 @@ Pruebas incluidas:
 - Reapertura publica y por owner token.
 - Dedupe basico al crear reporte.
 - Contactos no salen en respuestas publicas por defecto.
+- Mapa limitado a las zonas afectadas configuradas en `ALLOWED_BBOXES_JSON`.
 - Boton publico para abuso y senales de vida nuevas.
 - Retencion configurable de reportes y eventos.
 - Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.

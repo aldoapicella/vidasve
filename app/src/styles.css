@@ -164,6 +164,14 @@ button:disabled {
   line-height: 1.1;
 }
 
+.zoneScope {
+  display: block;
+  margin-top: 4px;
+  color: #d8e3e0;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
 .eyebrow,
 .searchBox > label {
   font-size: 11px;

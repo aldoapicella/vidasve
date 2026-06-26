@@ -38,10 +38,13 @@ export function MapView({
     }
 
     const [lat, lng] = config.defaultCenter;
+    // ponytail: Azure Maps has one maxBounds box; click/report filtering still enforces each configured zone.
+    const activeBounds = boundsFromAllowedZones(config.allowedBboxes);
     try {
       const map = new atlas.Map(containerRef.current, {
         center: [lng, lat],
         zoom: config.defaultZoom,
+        maxBounds: activeBounds,
         view: "Auto",
         style: "road",
         authOptions: {
@@ -54,6 +57,7 @@ export function MapView({
       sourceRef.current = source;
       mapRef.current = map;
       map.events.add("ready", () => {
+        if (activeBounds) map.setCamera({ bounds: activeBounds, maxBounds: activeBounds, padding: 48, maxZoom: config.defaultZoom });
         const reportsLayer = new atlas.layer.BubbleLayer(source, "reports", {
           filter: ["!", ["has", "point_count"]],
           color: ["match", ["get", "priority"], "P1", "#b91c1c", "P2", "#b45309", "#155e75"],
@@ -84,7 +88,8 @@ export function MapView({
           if (report) onReportSelect(report);
         });
         map.events.add("click", (event) => {
-          if (event.position) onMapClick([event.position[0], event.position[1]]);
+          const position = event.position ? [event.position[0], event.position[1]] as [number, number] : undefined;
+          if (position && pointInAllowedZones(position, config.allowedBboxes)) onMapClick(position);
         });
         onBoundsChange(bounds(map));
       });
@@ -100,10 +105,10 @@ export function MapView({
     source.clear();
     source.add(
       reports
-        .filter((report) => report.location)
+        .filter((report) => report.location && pointInAllowedZones(report.location.coordinates, config.allowedBboxes))
         .map((report) => new atlas.data.Feature(new atlas.data.Point(report.location!.coordinates), report))
     );
-  }, [reports]);
+  }, [reports, config.allowedBboxes]);
 
   useEffect(() => {
     reportsLayerRef.current?.setOptions({
@@ -162,4 +167,21 @@ function bounds(map: atlas.Map): [number, number, number, number] | undefined {
   const box = camera.bounds;
   if (!box) return undefined;
   return [box[0], box[1], box[2], box[3]];
+}
+
+function boundsFromAllowedZones(zones: PublicConfig["allowedBboxes"]): atlas.data.BoundingBox | undefined {
+  if (!zones.length) return undefined;
+  return zones.reduce(
+    (bounds, zone) => [
+      Math.min(bounds[0], zone.minLng),
+      Math.min(bounds[1], zone.minLat),
+      Math.max(bounds[2], zone.maxLng),
+      Math.max(bounds[3], zone.maxLat)
+    ],
+    [zones[0].minLng, zones[0].minLat, zones[0].maxLng, zones[0].maxLat] as atlas.data.BoundingBox
+  );
+}
+
+function pointInAllowedZones([lng, lat]: [number, number], zones: PublicConfig["allowedBboxes"]): boolean {
+  return !zones.length || zones.some((zone) => lng >= zone.minLng && lng <= zone.maxLng && lat >= zone.minLat && lat <= zone.maxLat);
 }

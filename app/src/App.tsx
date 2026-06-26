@@ -49,6 +49,7 @@ export function App() {
   const urgentCount = visibleReports.filter((report) => report.priority === "P1").length;
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
+  const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -128,6 +129,7 @@ export function App() {
           <div>
             <span className="eyebrow">MapaRescate Venezuela</span>
             <strong>Mapa operativo</strong>
+            {zoneNames ? <span className="zoneScope">Zonas activas: {zoneNames}</span> : null}
           </div>
           <div className="metricStrip" aria-label="Reportes visibles">
             <span><b>{visibleReports.length}</b> visibles</span>
@@ -192,7 +194,7 @@ export function App() {
 
       {pickHint && !pickedLocation ? (
         <section className="pickHint" role="status">
-          Toca el punto exacto en el mapa. Luego confirma con "Reportar aqui".
+          Toca el punto exacto dentro de las zonas activas. Luego confirma con "Reportar aqui".
         </section>
       ) : null}
 
