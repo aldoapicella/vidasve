@@ -9,6 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "ci": "npm run lint --workspaces && npm run test --workspace api && npm run build --workspace app",
+    "import:reports": "node scripts/import-reports.mjs",
     "test": "npm run test --workspace api"
   }
 }

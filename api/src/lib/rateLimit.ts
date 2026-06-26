@@ -38,6 +38,10 @@ const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
   maps_token: [
     { key: "ipHash", windowSeconds: 60, max: 60, label: "ip-minute" },
     { key: "deviceHash", windowSeconds: 3600, max: 300, label: "device-hour" }
+  ],
+  places_search: [
+    { key: "ipHash", windowSeconds: 60, max: 30, label: "ip-minute" },
+    { key: "deviceHash", windowSeconds: 3600, max: 250, label: "device-hour" }
   ]
 };
 

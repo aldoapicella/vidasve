@@ -14,6 +14,7 @@ export const ACTION_DIFFICULTY: Record<PublicAction, number> = {
   reopen_claim: 17,
   owner_event: 16,
   maps_token: 10,
+  places_search: 0,
   public_post: 16
 };
 

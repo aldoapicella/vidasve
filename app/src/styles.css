@@ -518,6 +518,13 @@ textarea {
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
+  pointer-events: none;
+}
+
+.selectedPlace button,
+.selectedPlace label,
+.selectedPlace input {
+  pointer-events: auto;
 }
 
 .selectedPlaceError {
@@ -547,6 +554,39 @@ textarea {
   display: grid;
   justify-items: end;
   gap: 8px;
+}
+
+.placeSuggestList {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  background: #ffffff;
+}
+
+.placeSuggestList button {
+  min-height: 48px;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  color: var(--ink);
+  text-align: left;
+}
+
+.placeSuggestList button:hover {
+  background: #ecfdf5;
+}
+
+.placeSuggestList span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .sectionHeader,
@@ -679,7 +719,8 @@ legend {
   font-weight: 800;
 }
 
-label {
+label,
+.fieldGroup {
   display: grid;
   gap: 6px;
   font-weight: 700;
@@ -795,6 +836,11 @@ label {
 .detailPerson strong {
   display: block;
   font-size: 14px;
+}
+
+.detailPerson a {
+  color: var(--primary-strong);
+  text-decoration: none;
 }
 
 .detailPerson span,

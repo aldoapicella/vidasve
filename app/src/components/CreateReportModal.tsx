@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { createReport } from "../api/client";
-import type { PersonStatus, PublicConfig, PublicPerson, ReportType } from "../types";
+import { useEffect, useState } from "react";
+import { createReport, searchPlaces } from "../api/client";
+import type { PersonStatus, PlaceSuggestion, PublicConfig, PublicPerson, ReportType } from "../types";
 
 export interface CreatedReport {
   code: string;
@@ -62,8 +62,21 @@ export function CreateReportModal({
   const [error, setError] = useState<string | null>(null);
   const [locationUnknown, setLocationUnknown] = useState(!defaultLocation);
   const [location, setLocation] = useState<[number, number] | undefined>(defaultLocation);
+  const [addressText, setAddressText] = useState("");
+  const [places, setPlaces] = useState<PlaceSuggestion[]>([]);
   const [persons, setPersons] = useState<DraftPerson[]>([newPerson()]);
   const pointOutsideZone = location && !locationUnknown && !pointInAllowedZones(location, config.allowedBboxes);
+
+  useEffect(() => {
+    if (!config.features.geocoding || addressText.trim().length < 3) {
+      setPlaces([]);
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      searchPlaces(addressText).then((result) => setPlaces(result.items)).catch(() => setPlaces([]));
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [addressText, config.features.geocoding]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,7 +98,7 @@ export function CreateReportModal({
         location: locationUnknown || !location ? undefined : { type: "Point", coordinates: location },
         locationUnknown,
         locationAccuracy: locationUnknown ? "zone_only" : "approximate",
-        addressText: form.get("addressText"),
+        addressText,
         landmark: form.get("landmark"),
         type,
         peopleCount,
@@ -126,6 +139,13 @@ export function CreateReportModal({
     setPersons((current) => current.map((person) => person.id === id ? { ...person, ...patch } : person));
   }
 
+  function usePlace(place: PlaceSuggestion) {
+    setAddressText(place.label);
+    setLocation(place.coordinates);
+    setLocationUnknown(false);
+    setPlaces([]);
+  }
+
   return (
     <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="create-title">
       <form className="modal reportForm quickReport" onSubmit={submit}>
@@ -158,10 +178,29 @@ export function CreateReportModal({
           </div>
         </section>
 
-        <label>
-          Ubicacion o referencia
-          <input name="addressText" required maxLength={240} placeholder="Edificio, calle, plaza, piso o punto cercano" />
-        </label>
+        <div className="fieldGroup">
+          <label htmlFor="addressText">Ubicacion o referencia</label>
+          <input
+            id="addressText"
+            name="addressText"
+            required
+            maxLength={240}
+            placeholder="Buscar edificio, calle, plaza o punto cercano"
+            value={addressText}
+            onChange={(event) => setAddressText(event.target.value)}
+            autoComplete="off"
+          />
+          {places.length ? (
+            <div className="placeSuggestList" role="listbox" aria-label="Sugerencias de ubicacion">
+              {places.map((place) => (
+                <button key={place.id} type="button" onClick={() => usePlace(place)}>
+                  <strong>{place.label}</strong>
+                  {place.detail ? <span>{place.detail}</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : config.features.geocoding ? <small>Busca y elige un resultado dentro de Caracas, La Guaira o zonas activas.</small> : null}
+        </div>
 
         <label>
           Que ocurre

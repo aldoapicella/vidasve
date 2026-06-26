@@ -132,14 +132,16 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
   const showFeed = location.pathname === "/feed";
+  const personRouteId = location.pathname.match(/^\/persona\/([^/]+)/)?.[1];
   const privateAccess = useMemo(() => {
-    const match = location.pathname.match(/^\/r\/([^/]+)/);
+    const match = location.pathname.match(/^\/(?:r|caso)\/([^/]+)/);
     const token =
       new URLSearchParams(location.hash.slice(1)).get("ownerToken") ??
       new URLSearchParams(location.search).get("ownerToken");
     return match && token ? { code: decodeURIComponent(match[1]).toUpperCase(), token } : undefined;
   }, []);
   const scopedReports = useMemo(() => reports.filter((report) => reportInAllowedZones(report, config.allowedBboxes)), [reports, config.allowedBboxes]);
+  const personRoute = useMemo(() => personRouteId ? findPerson(scopedReports, decodeURIComponent(personRouteId)) : undefined, [personRouteId, scopedReports]);
   const filteredReports = useMemo(() => applyReportFilter(scopedReports, filter), [scopedReports, filter]);
   const visibleReports = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -165,7 +167,7 @@ export function App() {
   }, [filter]);
 
   useEffect(() => {
-    const match = location.pathname.match(/^\/r\/([^/]+)/);
+    const match = location.pathname.match(/^\/(?:r|caso)\/([^/]+)/);
     if (!match) return;
     getReport(match[1])
       .then((data) => {
@@ -186,6 +188,10 @@ export function App() {
       setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
     }
   }, []);
+
+  useEffect(() => {
+    if (personRouteId) void refreshReports(undefined, "all");
+  }, [personRouteId, refreshReports]);
 
   const refreshPosts = useCallback(async () => {
     try {
@@ -211,7 +217,7 @@ export function App() {
       const data = await getReport(report.code);
       setSelected(data.report);
       setEvents(data.events);
-      history.replaceState(null, "", `/r/${report.code}`);
+      history.replaceState(null, "", `/caso/${report.code}`);
     } catch {
       setError("No se pudo cargar el detalle.");
     }
@@ -249,7 +255,7 @@ export function App() {
       const data = await getReport(code);
       setSelected(data.report);
       setEvents(data.events);
-      history.replaceState(null, "", `/r/${code}`);
+      history.replaceState(null, "", `/caso/${code}`);
     } catch {
       setError("No se pudo cargar el detalle.");
     }
@@ -279,7 +285,7 @@ export function App() {
     return (
       <main className="signalShell feedShell" aria-label={APP_NAME}>
         <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
-        {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={(code) => { window.location.href = `/r/${code}`; }} /> : null}
+        {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={(code) => { window.location.href = `/caso/${code}`; }} /> : null}
         <PublicFeed
           reports={visibleReports}
           posts={feedPosts}
@@ -315,7 +321,7 @@ export function App() {
   }
 
   return (
-    <main className={selected ? "signalShell detailOpen" : "signalShell"} aria-label={APP_NAME}>
+    <main className={selected || personRoute ? "signalShell detailOpen" : "signalShell"} aria-label={APP_NAME}>
       <MapView
         config={config}
         reports={mapReports}
@@ -419,6 +425,8 @@ export function App() {
           onClose={closeDetail}
           onEvent={(type, message, reason) => sendEvent(type, message, reason)}
         />
+      ) : personRoute ? (
+        <PersonProfileDrawer match={personRoute} onClose={closeDetail} />
       ) : DEMO_MODE ? (
         <CasePreviewPanel
           onUpload={() => setUploadOpen(true)}
@@ -467,6 +475,46 @@ function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onC
         </div>
       </section>
     </div>
+  );
+}
+
+function PersonProfileDrawer({
+  match,
+  onClose
+}: {
+  match: { report: PublicReport; person: NonNullable<PublicReport["persons"]>[number] };
+  onClose: () => void;
+}) {
+  const { report, person } = match;
+  return (
+    <aside className="detailDrawer" aria-label={`Persona ${person.displayName}`}>
+      <header>
+        <div>
+          <span className={`priority ${report.priority.toLowerCase()}`}>{report.priority}</span>
+          <h1>{person.displayName}</h1>
+          <p>{personStatusLabel(person.status)}</p>
+        </div>
+        <button className="iconButton" type="button" aria-label="Cerrar detalle" onClick={onClose}>
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </header>
+      <section>
+        <h2>Ultima ubicacion</h2>
+        <p>{person.lastKnownPlace || report.addressText}</p>
+        {person.lastContactText ? <p>Ultimo contacto: {person.lastContactText}</p> : null}
+      </section>
+      {person.description ? (
+        <section>
+          <h2>Detalle publico</h2>
+          <p>{person.description}</p>
+        </section>
+      ) : null}
+      <section>
+        <h2>Caso vinculado</h2>
+        <p>{report.code} · {report.addressText}</p>
+        <a className="button secondary" href={`/caso/${report.code}`}>Abrir caso</a>
+      </section>
+    </aside>
   );
 }
 
@@ -572,7 +620,7 @@ function SearchGroup({
     <div>
       <h3>{title}</h3>
       {items.length ? items.map((item) => (
-        <button key={item.key} type="button" onClick={() => void onOpenReport(item.code)}>
+        <button key={item.key} type="button" onClick={() => item.href ? window.location.assign(item.href) : void onOpenReport(item.code)}>
           <span>{item.label}</span>
           {item.detail ? <small>{item.detail}</small> : null}
         </button>
@@ -822,8 +870,8 @@ function FeedPost({ post }: { post: PublicPost }) {
           {post.tags.map((tag) => <b key={tag}>{tag}</b>)}
         </div>
         <footer>
-          <a className="feedAction" href={`/r/${post.report.code}`}>Abrir ficha</a>
-          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/r/${post.report.code}`)}>Compartir</button>
+          <a className="feedAction" href={`/caso/${post.report.code}`}>Abrir ficha</a>
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/caso/${post.report.code}`)}>Compartir</button>
         </footer>
       </div>
     </article>
@@ -856,8 +904,8 @@ function ReportFeedPost({ report }: { report: PublicReport }) {
           {report.signsOfLife ? <b>Señales de vida</b> : null}
         </div>
         <footer>
-          <a className="feedAction" href={`/r/${report.code}`}>Abrir ficha</a>
-          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/r/${report.code}`)}>Compartir</button>
+          <a className="feedAction" href={`/caso/${report.code}`}>Abrir ficha</a>
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/caso/${report.code}`)}>Compartir</button>
         </footer>
       </div>
     </article>
@@ -1035,6 +1083,7 @@ interface SearchItem {
   code: string;
   label: string;
   detail?: string;
+  href?: string;
 }
 
 function searchPublicContent(term: string, reports: PublicReport[], posts: PublicPost[] = []) {
@@ -1057,7 +1106,8 @@ function searchPublicContent(term: string, reports: PublicReport[], posts: Publi
         key: `${report.code}-${person.id}`,
         code: report.code,
         label: person.displayName,
-        detail: `${personStatusLabel(person.status)} · ${report.addressText}`
+        detail: `${personStatusLabel(person.status)} · ${report.addressText}`,
+        href: `/persona/${person.id}`
       }))
   );
   return {
@@ -1106,6 +1156,14 @@ function reportSearchValues(report: PublicReport): string[] {
       person.publicContactRelationship
     ])
   ].filter(Boolean) as string[];
+}
+
+function findPerson(reports: PublicReport[], id: string) {
+  for (const report of reports) {
+    const person = report.persons?.find((item) => item.id === id);
+    if (person) return { report, person };
+  }
+  return undefined;
 }
 
 function labelForType(type: PublicReport["type"]): string {

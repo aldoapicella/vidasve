@@ -25,9 +25,13 @@ jobs:
         env:
           BUDGET_CONTACT_EMAILS_JSON: ${{ vars.BUDGET_CONTACT_EMAILS_JSON }}
           MONTHLY_BUDGET_AMOUNT: ${{ vars.MONTHLY_BUDGET_AMOUNT }}
+          MEDIA_UPLOADS_ENABLED: ${{ vars.MEDIA_UPLOADS_ENABLED }}
+          GEOCODING_ENABLED: ${{ vars.GEOCODING_ENABLED }}
         run: |
           budgetContactEmailsJson="${BUDGET_CONTACT_EMAILS_JSON:-[]}"
           monthlyBudgetAmount="${MONTHLY_BUDGET_AMOUNT:-25}"
+          mediaUploadsEnabled="${MEDIA_UPLOADS_ENABLED:-false}"
+          geocodingEnabled="${GEOCODING_ENABLED:-true}"
           az deployment group create \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --template-file infra/main.bicep \
@@ -39,5 +43,7 @@ jobs:
               allowedOrigins="${{ vars.ALLOWED_ORIGINS }}" \
               publicAppUrl="${{ vars.PUBLIC_APP_URL }}" \
               azureMapsRoleDefinitionId="${{ vars.AZURE_MAPS_ROLE_DEFINITION_ID }}" \
+              mediaUploadsEnabled="$mediaUploadsEnabled" \
+              geocodingEnabled="$geocodingEnabled" \
               budgetContactEmailsJson="$budgetContactEmailsJson" \
               monthlyBudgetAmount="$monthlyBudgetAmount"

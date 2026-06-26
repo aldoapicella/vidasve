@@ -85,7 +85,7 @@ app.http("reportsCreate", {
     const updated = recalculateReport(report, [event], now);
     await store.updateReport(updated);
 
-    const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/r/${report.code}`;
+    const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/caso/${report.code}`;
     return json(request, 201, {
       ok: true,
       code: report.code,

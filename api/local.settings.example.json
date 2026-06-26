@@ -15,6 +15,7 @@
     "MEDIA_UPLOADS_ENABLED": "false",
     "MEDIA_STORAGE_ACCOUNT": "",
     "MEDIA_CONTAINER": "report-media",
+    "GEOCODING_ENABLED": "false",
     "DAILY_MAP_TOKEN_SOFT_LIMIT": "5000"
   }
 }

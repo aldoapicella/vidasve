@@ -2,6 +2,7 @@ import "./functions/health.js";
 import "./functions/config.js";
 import "./functions/challenge.js";
 import "./functions/mapsToken.js";
+import "./functions/places.js";
 import "./functions/reportsCreate.js";
 import "./functions/search.js";
 import "./functions/posts.js";

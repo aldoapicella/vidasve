@@ -23,6 +23,9 @@
     "mediaUploadsEnabled": {
       "value": false
     },
+    "geocodingEnabled": {
+      "value": true
+    },
     "enableCosmosFreeTier": {
       "value": true
     },

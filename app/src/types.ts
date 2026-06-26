@@ -25,6 +25,13 @@ export interface PublicConfig {
   features: { mediaUploads: boolean; geocoding: boolean };
 }
 
+export interface PlaceSuggestion {
+  id: string;
+  label: string;
+  detail?: string;
+  coordinates: [number, number];
+}
+
 export type PersonStatus = "trapped" | "missing" | "signals_of_life" | "found" | "needs_verification";
 export type PublicPostType = "story" | "photo" | "flyer" | "screenshot" | "pdf" | "update";
 

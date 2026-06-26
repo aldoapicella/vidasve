@@ -32,6 +32,7 @@ export type PublicAction =
   | "new_signs_of_life"
   | "owner_event"
   | "maps_token"
+  | "places_search"
   | "public_post";
 
 export type LocationAccuracy = "exact" | "approximate" | "zone_only";

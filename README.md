@@ -75,10 +75,12 @@ DEFAULT_ZOOM=11
 MEDIA_UPLOADS_ENABLED=false
 MEDIA_STORAGE_ACCOUNT=<solo si MEDIA_UPLOADS_ENABLED=true>
 MEDIA_CONTAINER=report-media
+GEOCODING_ENABLED=true
 DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
 No configures Azure Maps subscription key en la SPA. El frontend pide `/api/maps/token` y la Function obtiene el token con Managed Identity.
+El autocomplete de ubicacion usa `/api/places?q=...`, tambien via Managed Identity, y solo devuelve resultados dentro de `ALLOWED_BBOXES_JSON`.
 `ALLOWED_BBOXES_JSON` define las zonas afectadas visibles e interactivas del mapa. Por defecto cubre Caracas, La Guaira, Altos Mirandinos y Guarenas-Guatire; ajusta esos bboxes cuando operaciones confirme nuevas zonas.
 Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el area. No hay clustering server-side todavia.
 
@@ -139,6 +141,8 @@ FUNCTION_APP_NAME
 AZURE_MAPS_ROLE_DEFINITION_ID
 BUDGET_CONTACT_EMAILS_JSON opcional, ejemplo ["ops@example.com"]
 MONTHLY_BUDGET_AMOUNT opcional, default 25
+MEDIA_UPLOADS_ENABLED opcional, usa `true` para crear Blob Storage y activar archivos
+GEOCODING_ENABLED opcional, default `true`
 ```
 
 Secrets de GitHub:
@@ -174,6 +178,14 @@ curl https://<function-app>.azurewebsites.net/api/health
 curl https://<function-app>.azurewebsites.net/api/health/deep
 ```
 
+Importar reportes reales verificados desde CSV:
+
+```bash
+API_BASE_URL=https://<function-app>.azurewebsites.net/api npm run import:reports -- verified.csv
+```
+
+Columnas utiles: `addressText,knownInfoPublic,type,lat,lng,peopleCount,personName,personAge,personStatus,lastKnownPlace,lastContactText,signsOfLife,riskFlags,sourceType,reporterContact`.
+
 Pruebas incluidas:
 
 - `calculatePriority`
@@ -204,4 +216,4 @@ Pruebas incluidas:
 - Boton publico para abuso y senales de vida nuevas.
 - Retencion configurable de reportes y eventos.
 - Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.
-- Uploads de archivo/media desactivados por feature flag; si se activa, la API acepta PNG/JPEG/WebP/PDF hasta 5MB y escribe en Azure Blob Storage.
+- Uploads de archivo/media por feature flag; si se activa, la API acepta PNG/JPEG/WebP/PDF hasta 5MB y escribe en Azure Blob Storage.

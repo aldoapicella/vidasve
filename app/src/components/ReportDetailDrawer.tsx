@@ -95,7 +95,7 @@ export function ReportDetailDrawer({
             {report.persons.map((person) => (
               <article key={person.id} className="detailPerson">
                 <div>
-                  <strong>{person.displayName}</strong>
+                  <strong><a href={`/persona/${person.id}`}>{person.displayName}</a></strong>
                   <span>{person.age ? `${person.age} anos · ` : ""}{personStatusLabel(person.status)}</span>
                 </div>
                 {person.lastKnownPlace ? <p>{person.lastKnownPlace}</p> : null}
