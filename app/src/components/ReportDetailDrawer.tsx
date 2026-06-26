@@ -40,7 +40,7 @@ export function ReportDetailDrawer({
           <p>Codigo: {report.code}</p>
         </div>
         <button className="iconButton" type="button" aria-label="Cerrar detalle" onClick={onClose}>
-          x
+          <span aria-hidden="true">&times;</span>
         </button>
       </header>
 

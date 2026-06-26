@@ -7,6 +7,7 @@ export function MapView({
   config,
   reports,
   selectedCode,
+  pickedLocation,
   onBoundsChange,
   onReportSelect,
   onMapClick
@@ -14,6 +15,7 @@ export function MapView({
   config: PublicConfig;
   reports: PublicReport[];
   selectedCode?: string;
+  pickedLocation?: [number, number];
   onBoundsChange: (bbox?: [number, number, number, number]) => void;
   onReportSelect: (report: PublicReport) => void;
   onMapClick: (location: [number, number]) => void;
@@ -22,11 +24,16 @@ export function MapView({
   const mapRef = useRef<atlas.Map | null>(null);
   const sourceRef = useRef<atlas.source.DataSource | null>(null);
   const reportsLayerRef = useRef<atlas.layer.BubbleLayer | null>(null);
+  const pickedMarkerRef = useRef<atlas.HtmlMarker | null>(null);
+  const fallbackLoadedRef = useRef(false);
   const [mapFailed, setMapFailed] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !config.azureMapsClientId) {
-      if (!config.azureMapsClientId) onBoundsChange();
+      if (!config.azureMapsClientId && !fallbackLoadedRef.current) {
+        fallbackLoadedRef.current = true;
+        onBoundsChange();
+      }
       return;
     }
 
@@ -103,6 +110,24 @@ export function MapView({
       radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 15, 10]
     });
   }, [selectedCode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !pickedLocation) return;
+    if (!pickedMarkerRef.current) {
+      pickedMarkerRef.current = new atlas.HtmlMarker({
+        htmlContent: '<div class="pickedMarker" aria-label="Punto seleccionado"></div>'
+      });
+      map.markers.add(pickedMarkerRef.current);
+    }
+    pickedMarkerRef.current.setOptions({ position: pickedLocation });
+  }, [pickedLocation]);
+
+  useEffect(() => {
+    if (pickedLocation || !pickedMarkerRef.current || !mapRef.current) return;
+    mapRef.current.markers.remove(pickedMarkerRef.current);
+    pickedMarkerRef.current = null;
+  }, [pickedLocation]);
 
   if (mapFailed || !config.azureMapsClientId) {
     return (

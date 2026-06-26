@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createEvent, getConfig, getReport, listReports } from "./api/client";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
 import { FiltersBar } from "./components/FiltersBar";
@@ -23,14 +23,20 @@ export function App() {
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [createOpen, setCreateOpen] = useState(location.pathname === "/reportar");
   const [pickedLocation, setPickedLocation] = useState<[number, number] | undefined>();
+  const [pickHint, setPickHint] = useState(false);
   const [created, setCreated] = useState<CreatedReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const filterRef = useRef(filter);
   const ownerToken = useMemo(() => new URLSearchParams(location.search).get("ownerToken") ?? undefined, []);
   const urgentCount = reports.filter((report) => report.priority === "P1").length;
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
   }, []);
+
+  useEffect(() => {
+    filterRef.current = filter;
+  }, [filter]);
 
   useEffect(() => {
     const match = location.pathname.match(/^\/r\/([^/]+)/);
@@ -43,14 +49,14 @@ export function App() {
       .catch(() => setError("No se pudo abrir ese reporte."));
   }, []);
 
-  const refreshReports = useCallback(async (bbox?: [number, number, number, number]) => {
+  const refreshReports = useCallback(async (bbox?: [number, number, number, number], filterOverride?: string) => {
     try {
-      setReports(await listReports(bbox, filter));
+      setReports(await listReports(bbox, filterOverride ?? filterRef.current));
       setError(null);
     } catch {
       setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
     }
-  }, [filter]);
+  }, []);
 
   async function selectReport(report: PublicReport) {
     setSelected(report);
@@ -71,6 +77,11 @@ export function App() {
     setEvents((current) => [...current, response.event]);
   }
 
+  const handleMapClick = useCallback((location: [number, number]) => {
+    setPickedLocation(location);
+    setPickHint(false);
+  }, []);
+
   function closeDetail() {
     setSelected(null);
     setEvents([]);
@@ -78,14 +89,15 @@ export function App() {
   }
 
   return (
-    <main className="shell" aria-label="MapaRescate Venezuela">
+    <main className={selected ? "shell detailOpen" : "shell"} aria-label="MapaRescate Venezuela">
       <MapView
         config={config}
         reports={reports}
         selectedCode={selected?.code}
+        pickedLocation={pickedLocation}
         onBoundsChange={refreshReports}
         onReportSelect={selectReport}
-        onMapClick={setPickedLocation}
+        onMapClick={handleMapClick}
       />
 
       <div className="topbar">
@@ -103,19 +115,44 @@ export function App() {
           <span>Zona</span>
           <input aria-label="Buscar zona" placeholder="Caracas, La Guaira..." />
         </label>
-        <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(); }} />
+        <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(undefined, next); }} />
       </div>
 
-      <div className="fabStack">
-        <button className="primaryFab" type="button" onClick={() => setCreateOpen(true)}>
-          Reportar emergencia
-        </button>
-        {selected ? (
-          <button className="secondaryFab" type="button" onClick={() => void sendEvent("nearby_help", "Estoy cerca o llevando ayuda.")}>
-            Estoy cerca
+      {!pickedLocation || selected ? (
+        <div className="fabStack">
+          {!pickedLocation ? (
+            <button className="primaryFab" type="button" onClick={() => setPickHint(true)}>
+              Elegir punto en el mapa
+            </button>
+          ) : null}
+          {selected ? (
+            <button className="secondaryFab" type="button" onClick={() => void sendEvent("nearby_help", "Estoy cerca o llevando ayuda.")}>
+              Estoy cerca
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {pickedLocation && !createOpen && !selected ? (
+        <section className="placeSheet" aria-label="Punto seleccionado">
+          <div>
+            <span className="eyebrow">Punto seleccionado</span>
+            <strong>{formatLocation(pickedLocation)}</strong>
+          </div>
+          <button type="button" onClick={() => setCreateOpen(true)}>
+            Reportar aqui
           </button>
-        ) : null}
-      </div>
+          <button className="ghost" type="button" onClick={() => setPickedLocation(undefined)}>
+            Quitar
+          </button>
+        </section>
+      ) : null}
+
+      {pickHint && !pickedLocation ? (
+        <section className="pickHint" role="status">
+          Toca el punto exacto en el mapa. Luego confirma con "Reportar aqui".
+        </section>
+      ) : null}
 
       {error ? <OfflineBanner message={error} onRetry={() => void refreshReports()} /> : null}
 
@@ -145,6 +182,10 @@ export function App() {
       ) : null}
     </main>
   );
+}
+
+function formatLocation([lng, lat]: [number, number]): string {
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onClose: () => void }) {

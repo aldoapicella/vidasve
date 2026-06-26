@@ -130,6 +130,17 @@ button:disabled {
   z-index: 10;
 }
 
+.detailOpen .topbar {
+  right: 456px;
+  grid-template-columns: minmax(220px, 280px) minmax(180px, 1fr);
+}
+
+.detailOpen .filters {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
 .brandPanel,
 .searchBox {
   display: grid;
@@ -229,6 +240,61 @@ textarea {
   z-index: 10;
 }
 
+.placeSheet {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 11;
+  width: min(680px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.placeSheet strong {
+  display: block;
+  font-size: 18px;
+}
+
+.pickHint {
+  position: absolute;
+  left: 16px;
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 64px);
+  z-index: 11;
+  max-width: 360px;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.pickedMarker {
+  width: 26px;
+  height: 26px;
+  border: 4px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--danger);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.35);
+  transform: rotate(-45deg);
+}
+
+.pickedMarker::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
 .primaryFab {
   min-width: 190px;
   background: var(--danger);
@@ -311,16 +377,135 @@ textarea {
   line-height: 1.2;
 }
 
+.helperText {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
 .iconButton {
   width: 44px;
   padding: 0;
   background: #eef2f1;
   color: #172026;
+  font-size: 26px;
+  line-height: 1;
 }
 
 .reportForm {
   display: grid;
   gap: 16px;
+}
+
+.quickReport {
+  width: min(720px, 100%);
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stepper span {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.stepper .active {
+  border-color: var(--primary);
+  background: #ecfdf5;
+  color: var(--primary-strong);
+}
+
+.reportStep {
+  display: grid;
+  gap: 14px;
+}
+
+.selectedPlace,
+.lifeToggle,
+.optionalDetails {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  padding: 14px;
+}
+
+.selectedPlace span {
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.selectedPlace strong {
+  display: block;
+  margin: 4px 0 10px;
+  font-size: 18px;
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.typeCard {
+  min-height: 92px;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 6px;
+  padding: 14px;
+  text-align: left;
+  background: #ffffff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.typeCard span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.typeCard.active {
+  border-color: var(--danger);
+  background: #fff7f7;
+  color: var(--danger);
+}
+
+.lifeToggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lifeToggle input {
+  width: 24px;
+  min-height: 24px;
+}
+
+.lifeToggle small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.optionalDetails {
+  display: grid;
+  gap: 12px;
+}
+
+.optionalDetails summary {
+  cursor: pointer;
+  font-weight: 800;
 }
 
 fieldset {
@@ -374,6 +559,9 @@ label {
   left: -10000px;
   width: 1px;
   height: 1px;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .actions {
@@ -520,16 +708,32 @@ label {
     grid-template-columns: 1fr;
   }
 
+  .eventGrid,
+  .inlineFields,
+  .typeGrid,
+  .placeSheet {
+    grid-template-columns: 1fr;
+  }
+
+  .fabStack {
+    right: 16px;
+  }
+
+  .placeSheet {
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 960px) {
+  .detailOpen .topbar {
+    right: 12px;
+  }
+
   .detailDrawer {
     top: auto;
     height: min(78dvh, 760px);
     width: 100%;
     border-radius: 8px 8px 0 0;
-  }
-
-  .eventGrid,
-  .inlineFields {
-    grid-template-columns: 1fr;
   }
 }
 
