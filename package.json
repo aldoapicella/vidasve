@@ -1,0 +1,14 @@
+{
+  "name": "maparescate",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "app",
+    "api"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "ci": "npm run lint --workspaces && npm run test --workspace api && npm run build --workspace app",
+    "test": "npm run test --workspace api"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "maparescate"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "appHmacSecret": {
+      "value": "REPLACE_WITH_32_PLUS_RANDOM_BYTES"
+    },
+    "piiEncryptionKey": {
+      "value": "REPLACE_WITH_32_RANDOM_BYTES_OR_BASE64"
+    },
+    "allowedOrigins": {
+      "value": "https://REPLACE_STATIC_WEB_APP_HOST"
+    },
+    "publicAppUrl": {
+      "value": "https://REPLACE_STATIC_WEB_APP_HOST"
+    },
+    "mediaUploadsEnabled": {
+      "value": false
+    },
+    "enableCosmosFreeTier": {
+      "value": true
+    },
+    "azureMapsRoleDefinitionId": {
+      "value": ""
+    }
+  }
+}

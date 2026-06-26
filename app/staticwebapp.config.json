@@ -1,0 +1,12 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*"]
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
+    "Content-Security-Policy": "default-src 'self'; connect-src 'self' https://*.azurewebsites.net https://atlas.microsoft.com https://*.atlas.microsoft.com; img-src 'self' data: blob: https://atlas.microsoft.com https://*.atlas.microsoft.com; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  }
+}

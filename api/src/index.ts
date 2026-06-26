@@ -1,0 +1,9 @@
+import "./functions/health.js";
+import "./functions/config.js";
+import "./functions/challenge.js";
+import "./functions/mapsToken.js";
+import "./functions/reportsList.js";
+import "./functions/reportsCreate.js";
+import "./functions/reportGet.js";
+import "./functions/reportEvents.js";
+import "./functions/reportOwnerEvents.js";

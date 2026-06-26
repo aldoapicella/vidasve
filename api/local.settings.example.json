@@ -1,0 +1,18 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "APP_ENV": "local",
+    "APP_HMAC_SECRET": "dev-only-change-me-32-bytes-minimum",
+    "PII_ENCRYPTION_KEY": "dev-only-change-me-32-bytes-minimum",
+    "COSMOS_DATABASE": "maparescate",
+    "ALLOWED_ORIGINS": "http://localhost:5173",
+    "PUBLIC_APP_URL": "http://localhost:5173",
+    "DEFAULT_CENTER_JSON": "[10.6031,-66.9334]",
+    "DEFAULT_ZOOM": "11",
+    "ALLOWED_BBOXES_JSON": "[{\"name\":\"Caracas\",\"minLng\":-67.20,\"minLat\":10.35,\"maxLng\":-66.70,\"maxLat\":10.65},{\"name\":\"La Guaira\",\"minLng\":-67.35,\"minLat\":10.45,\"maxLng\":-66.75,\"maxLat\":10.75}]",
+    "MEDIA_UPLOADS_ENABLED": "false",
+    "DAILY_MAP_TOKEN_SOFT_LIMIT": "5000"
+  }
+}
