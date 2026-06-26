@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createEvent, getConfig, getReport, listReports } from "./api/client";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
-import { FiltersBar } from "./components/FiltersBar";
 import { MapView } from "./components/MapView";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
@@ -14,6 +13,95 @@ const DEFAULT_CONFIG: PublicConfig = {
   azureMapsClientId: "",
   features: { mediaUploads: false, geocoding: false }
 };
+
+const DEMO_CASE = {
+  code: "VE-ATLANTICO",
+  title: "Edificio Atlantico, La Guaira",
+  subtitle: "Av. La Playa, Urb. La Atlantida, Catia La Mar, La Guaira",
+  reference: "Frente al Hotel Catimar, al lado de la Panaderia Atlantico",
+  coords: "10.6026, -66.8772",
+  peopleCount: 4,
+  posts: 8,
+  updates: 12
+};
+
+const DEMO_PEOPLE = [
+  ["Valeria R.", "28 anos", "Estudiante de Medicina", "10 May, 11:30 a. m.", "ALTO RIESGO", "VR", "#f6c7b4", "Hermana: contacto privado verificado"],
+  ["Luis R.", "54 anos", "Ingeniero Electricista", "10 May, 11:15 a. m.", "ALTO RIESGO", "LR", "#d4a27e", "Hijo: contacto privado verificado"],
+  ["Santiago R.", "16 anos", "Estudiante 4to ano", "10 May, 11:20 a. m.", "MEDIO RIESGO", "SR", "#d2b48f", "Tia: contacto privado verificado"],
+  ["Maria R.", "62 anos", "Ama de casa", "10 May, 11:10 a. m.", "MEDIO RIESGO", "MR", "#c48f78", "Hija: contacto privado verificado"]
+];
+
+const DEMO_POSTS = [
+  {
+    author: "Ana de Garcia",
+    role: "Familiar",
+    time: "Hoy, 8:15 a. m.",
+    person: "Maria Rodriguez",
+    initials: "MR",
+    text: "Mi mama Maria Rodriguez fue vista por ultima vez en el lobby del Edificio Atlantico el 10/05 a las 11:20 a. m. Vestia blusa azul y pantalon gris.",
+    place: "Edificio Atlantico, Piso 4",
+    risk: "ALTO RIESGO"
+  },
+  {
+    author: "Carlos Rodriguez",
+    role: "Familiar",
+    time: "Ayer, 6:40 p. m.",
+    person: "Luis Rodriguez",
+    initials: "LR",
+    text: "Luis no ha respondido desde el sismo. Si alguien lo ha visto, por favor avisen.",
+    place: "Residencias Parque Caribe, Torre B",
+    risk: "RIESGO MEDIO"
+  },
+  {
+    author: "Sofia Martinez",
+    role: "Amiga",
+    time: "Ayer, 5:10 p. m.",
+    person: "Santiago R.",
+    initials: "SR",
+    text: "Busco a mi amigo Santiago R. Estudiamos juntos. Puede estar cerca de Catia La Mar.",
+    place: "Catia La Mar",
+    risk: "NECESITA VERIFICACION"
+  }
+];
+
+const DEMO_MEDIA = ["Valeria Rodriguez", "Luis Rodriguez", "Santiago Rodriguez", "Maria Rodriguez"];
+
+const DEMO_UPDATES = [
+  "Hoy 12:45 p. m. — Vecino reporto sonidos de golpes en el piso 3, lado este del edificio.",
+  "Hoy 11:20 a. m. — Familiar confirmo que 4 personas estaban en el apartamento 3B.",
+  "Ayer 6:30 p. m. — Se reporto perdida de comunicacion en la zona."
+];
+
+const DEMO_REPORTS: PublicReport[] = [
+  demoReport("DEMO-18", -67.05, 10.60, "P1", "Edificio Atlantico, La Guaira", "4 personas vinculadas"),
+  demoReport("DEMO-14", -67.09, 10.49, "P1", "Torre Miramar, Caracas", "Senales de vida recientes"),
+  demoReport("DEMO-09", -66.93, 10.55, "P2", "Macuto", "Atrapados sin confirmar"),
+  demoReport("DEMO-06", -66.90, 10.44, "P2", "Petare", "Riesgo medio"),
+  demoReport("DEMO-05", -67.14, 10.53, "P3", "La Guaira", "Informacion incompleta")
+];
+
+const DEMO_PINS = [
+  ["red", "18", 24, 38],
+  ["red", "14", 24, 62],
+  ["orange", "9", 58, 51],
+  ["orange", "7", 12, 50],
+  ["orange", "11", 22, 75],
+  ["yellow", "5", 45, 56],
+  ["yellow", "5", 72, 50],
+  ["yellow", "3", 14, 66],
+  ["purple", "", 76, 39],
+  ["heart", "", 37, 40],
+  ["heart", "", 53, 72]
+] as const;
+
+const FILTER_CHIPS = [
+  ["Señales de vida", "48", "red"],
+  ["Atrapados", "32", "orange"],
+  ["Voces/Golpes", "27", "yellow"],
+  ["Edificios con varias personas", "16", "purple"],
+  ["Feed", "", "plain"]
+] as const;
 
 export function App() {
   const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
@@ -28,8 +116,11 @@ export function App() {
   const [pickedLocation, setPickedLocation] = useState<[number, number] | undefined>();
   const [pickHint, setPickHint] = useState(false);
   const [created, setCreated] = useState<CreatedReport | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
+  const showFeed = location.pathname === "/feed";
   const privateAccess = useMemo(() => {
     const match = location.pathname.match(/^\/r\/([^/]+)/);
     const token =
@@ -46,10 +137,11 @@ export function App() {
         .some((value) => String(value).toLowerCase().includes(needle))
     );
   }, [reports, searchTerm]);
-  const urgentCount = visibleReports.filter((report) => report.priority === "P1").length;
+  const mapReports = visibleReports.length ? visibleReports : DEMO_REPORTS;
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
+  const searchResults = useMemo(() => searchPublicContent(searchTerm), [searchTerm]);
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -106,17 +198,49 @@ export function App() {
     setPickHint(false);
   }, []);
 
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 4200);
+  }
+
   function closeDetail() {
     setSelected(null);
     setEvents([]);
     history.replaceState(null, "", "/");
   }
 
+  if (showFeed) {
+    return (
+      <main className="signalShell feedShell" aria-label="SeñalVida">
+        <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
+        {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
+        <MobileSearchFilters />
+        <PublicFeed onUpload={() => setUploadOpen(true)} />
+        <BottomNav active="feed" onReport={() => setCreateOpen(true)} />
+        {createOpen ? (
+          <CreateReportModal
+            defaultLocation={pickedLocation}
+            config={config}
+            onClose={() => setCreateOpen(false)}
+            onCreated={(result) => {
+              setCreated(result);
+              setCreateOpen(false);
+              void refreshReports();
+            }}
+          />
+        ) : null}
+        {uploadOpen ? <UploadPublicationModal onClose={() => setUploadOpen(false)} /> : null}
+        {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
+        {toast ? <Toast message={toast} /> : null}
+      </main>
+    );
+  }
+
   return (
-    <main className={selected ? "shell detailOpen" : "shell"} aria-label="MapaRescate Venezuela">
+    <main className={selected ? "signalShell detailOpen" : "signalShell"} aria-label="SeñalVida">
       <MapView
         config={config}
-        reports={visibleReports}
+        reports={mapReports}
         selectedCode={selected?.code}
         pickedLocation={pickedLocation}
         onBoundsChange={refreshReports}
@@ -124,37 +248,13 @@ export function App() {
         onMapClick={handleMapClick}
       />
 
-      <div className="topbar">
-        <section className="brandPanel" aria-label="Estado operativo">
-          <div>
-            <span className="eyebrow">MapaRescate Venezuela</span>
-            <strong>Mapa operativo</strong>
-            {zoneNames ? <span className="zoneScope">Zonas activas: {zoneNames}</span> : null}
-          </div>
-          <div className="metricStrip" aria-label="Reportes visibles">
-            <span><b>{visibleReports.length}</b> visibles</span>
-            <span><b>{urgentCount}</b> P1</span>
-          </div>
-        </section>
-        <div className="searchBox">
-          <label htmlFor="report-search">Buscar</label>
-          <div className="searchControl">
-            <input
-              id="report-search"
-              aria-label="Buscar reportes"
-              placeholder="Codigo, zona o referencia"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            {searchTerm ? (
-              <button className="clearSearch" type="button" aria-label="Limpiar busqueda" onClick={() => setSearchTerm("")}>
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(undefined, next); }} />
-      </div>
+      <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
+      {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
+      <MobileSearchFilters />
+      <FilterChips />
+      <MapControls />
+      <DemoPins onOpenCase={() => setSelected(null)} />
+      <MapStatus zoneNames={zoneNames || "Caracas, La Guaira"} />
 
       {reportsTruncated ? (
         <section className={pickHint && !pickedLocation ? "limitNotice abovePickHint" : "limitNotice"} role="status">
@@ -166,7 +266,7 @@ export function App() {
         <div className="fabStack">
           {!pickedLocation ? (
             <button className="primaryFab" type="button" onClick={() => setPickHint(true)}>
-              Elegir punto en el mapa
+              Reportar emergencia
             </button>
           ) : null}
           {selected ? (
@@ -214,6 +314,7 @@ export function App() {
       ) : null}
 
       {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
+      {uploadOpen ? <UploadPublicationModal onClose={() => setUploadOpen(false)} /> : null}
 
       {selected ? (
         <ReportDetailDrawer
@@ -223,7 +324,23 @@ export function App() {
           onClose={closeDetail}
           onEvent={(type, message, reason) => sendEvent(type, message, reason)}
         />
-      ) : null}
+      ) : (
+        <CasePreviewPanel
+          onUpload={() => setUploadOpen(true)}
+          onReport={() => setCreateOpen(true)}
+          onNearby={() => showToast("Pista recibida: tu disponibilidad queda registrada para revision comunitaria.")}
+          onLifeSignal={() => showToast("Señal de vida creada: se agrega como pista publica independiente, sin cerrar el caso.")}
+          onShare={() => {
+            void navigator.clipboard?.writeText(`${window.location.origin}/caso/${DEMO_CASE.code}`).catch(() => undefined);
+            showToast("Enlace de ficha listo para compartir.");
+          }}
+          onAbuse={() => showToast("Denuncia recibida: el reporte se mantiene visible mientras se revisan señales independientes.")}
+        />
+      )}
+
+      <BottomNav active="map" onReport={() => setCreateOpen(true)} />
+      <AppFooter />
+      {toast ? <Toast message={toast} /> : null}
     </main>
   );
 }
@@ -256,4 +373,441 @@ function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onC
       </section>
     </div>
   );
+}
+
+function SignalHeader({
+  searchTerm,
+  setSearchTerm,
+  onReport
+}: {
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+  onReport: () => void;
+}) {
+  return (
+    <header className="signalHeader">
+      <a className="signalBrand" href="/" aria-label="SeñalVida inicio">
+        <span className="heartMark" aria-hidden="true"><HeartIcon /></span>
+        <span>Señal<span>Vida</span></span>
+      </a>
+      <label className="signalSearch">
+        <SearchIcon />
+        <input
+          aria-label="Buscar persona, edificio o ubicacion"
+          placeholder="Buscar persona, edificio o ubicacion"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+      </label>
+      <nav className="headerLinks" aria-label="Accesos">
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#ayuda">Centro de ayuda</a>
+        <button className="bellButton" type="button" aria-label="Alertas"><BellIcon /><span>3</span></button>
+        <button className="reportButton" type="button" onClick={onReport}>Reportar <span aria-hidden="true">+</span></button>
+      </nav>
+    </header>
+  );
+}
+
+function FilterChips() {
+  return (
+    <div className="signalFilters" aria-label="Filtros del mapa">
+      {FILTER_CHIPS.map(([label, count, tone]) => (
+        <a key={label} className={`signalChip ${tone}`} href={label === "Feed" ? "/feed" : "#mapa"}>
+          <span className="chipIcon" aria-hidden="true"><MiniIcon tone={tone} /></span>
+          <span>{label}</span>
+          {count ? <b>{count}</b> : null}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function MobileSearchFilters() {
+  return (
+    <div className="mobileSearchFilters" aria-label="Filtros de busqueda">
+      {["Todos", "Personas", "Ubicaciones", "Edificios"].map((item, index) => (
+        <button key={item} className={index === 0 ? "active" : ""} type="button">{item}</button>
+      ))}
+    </div>
+  );
+}
+
+function SearchOverlay({ results }: { results: ReturnType<typeof searchPublicContent> }) {
+  return (
+    <section className="searchOverlay" aria-label="Resultados de busqueda">
+      <SearchGroup title="Personas encontradas" items={results.people} />
+      <SearchGroup title="Edificios encontrados" items={results.cases} />
+      <SearchGroup title="Publicaciones recientes" items={results.posts} />
+      <a className="viewAllResults" href="/feed">Ver todos los resultados</a>
+    </section>
+  );
+}
+
+function SearchGroup({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      {items.length ? items.map((item) => <button key={item} type="button">{item}</button>) : <p>No hay coincidencias.</p>}
+    </div>
+  );
+}
+
+function MapControls() {
+  return (
+    <div className="mapControls" aria-label="Controles del mapa">
+      <button type="button" aria-label="Centrar mapa"><TargetIcon /></button>
+      <button type="button" aria-label="Acercar">+</button>
+      <button type="button" aria-label="Alejar">-</button>
+      <button type="button" aria-label="Capas"><LayerIcon /></button>
+    </div>
+  );
+}
+
+function DemoPins({ onOpenCase }: { onOpenCase: () => void }) {
+  return (
+    <div className="demoPins" aria-hidden="true">
+      {DEMO_PINS.map(([tone, label, left, top], index) => (
+        <button
+          key={`${tone}-${left}-${top}-${index}`}
+          className={`demoPin ${tone}`}
+          style={{ left: `${left}%`, top: `${top}%` }}
+          type="button"
+          onClick={onOpenCase}
+          tabIndex={-1}
+        >
+          {tone === "heart" ? <HeartIcon /> : tone === "purple" ? <BuildingIcon /> : label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MapStatus({ zoneNames }: { zoneNames: string }) {
+  return (
+    <section className="mapStatus">
+      <span></span>
+      <div>
+        <strong>Mapa actualizado hace 2 min</strong>
+        <p>Interaccion limitada a zonas afectadas: {zoneNames}</p>
+      </div>
+    </section>
+  );
+}
+
+function Toast({ message }: { message: string }) {
+  return <div className="toast" role="status">{message}</div>;
+}
+
+function CasePreviewPanel({
+  onUpload,
+  onReport,
+  onNearby,
+  onLifeSignal,
+  onShare,
+  onAbuse
+}: {
+  onUpload: () => void;
+  onReport: () => void;
+  onNearby: () => void;
+  onLifeSignal: () => void;
+  onShare: () => void;
+  onAbuse: () => void;
+}) {
+  return (
+    <aside className="casePanel" aria-label="Ficha publica de caso">
+      <button className="closePanel" type="button" aria-label="Cerrar ficha">×</button>
+      <div className="caseHero">
+        <span className="buildingBadge"><BuildingIcon /></span>
+        <div>
+          <span className="publicBadge">Ficha publica</span>
+          <h1>{DEMO_CASE.title}</h1>
+          <p>{DEMO_CASE.subtitle}</p>
+          <small>Referencia: {DEMO_CASE.reference}</small>
+        </div>
+        <span className="riskBadge">ALTO RIESGO</span>
+      </div>
+      <section className="peopleSummary">
+        <h2>{DEMO_CASE.peopleCount} personas reportadas en este edificio</h2>
+        <p>Informacion publica compartida por familiares y comunidad</p>
+      </section>
+      <section>
+        <h3>Personas en este edificio</h3>
+        <div className="personGrid">
+          {DEMO_PEOPLE.map((person) => <PersonCard key={person[0]} person={person} />)}
+        </div>
+        <button className="textLink" type="button">Ver detalles de las 4 personas</button>
+      </section>
+      <section>
+        <h3>Carteles y publicaciones de familiares</h3>
+        <div className="mediaStrip">
+          {DEMO_MEDIA.map((name) => <FlyerCard key={name} name={name} />)}
+          <button className="moreMedia" type="button" onClick={onUpload}>Ver todas<br />8 publicaciones</button>
+        </div>
+      </section>
+      <div className="primaryActions">
+        <button className="redAction" type="button" onClick={onNearby}>Estoy cerca</button>
+        <button className="greenAction" type="button" onClick={onLifeSignal}>Hay señales de vida</button>
+        <button className="outlineAction" type="button" onClick={onShare}>Compartir ficha</button>
+        <button className="dangerLinkAction" type="button" onClick={onAbuse}>Reportar abuso / informacion falsa</button>
+      </div>
+      <p className="communityGuard">Una señal comunitaria crea una pista publica para revisar. No cierra ni oculta el caso por si sola.</p>
+      <section>
+        <h3>Actualizaciones publicas</h3>
+        <ol className="publicTimeline">
+          {DEMO_UPDATES.map((update) => <li key={update}>{update}</li>)}
+        </ol>
+      </section>
+      <section className="uploadBox">
+        <h3>Subir informacion familiar</h3>
+        <p>Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+        <div>
+          <button type="button" onClick={onUpload}>Cargar historia</button>
+          <button type="button" onClick={onUpload}>Subir foto</button>
+          <button type="button" onClick={onUpload}>Agregar flyer</button>
+          <button type="button" onClick={onReport}>Publicar actualizacion</button>
+        </div>
+      </section>
+    </aside>
+  );
+}
+
+function PersonCard({ person }: { person: (typeof DEMO_PEOPLE)[number] }) {
+  return (
+    <article className="personCard">
+      <Avatar initials={person[5]} color={person[6]} />
+      <strong>{person[0]}</strong>
+      <span>{person[1]}</span>
+      <p>{person[2]}</p>
+      <small>Ultimo contacto<br /><b>{person[3]}</b></small>
+      <small className="publicContact">{person[7]}</small>
+      <em className={person[4].startsWith("ALTO") ? "high" : "medium"}>{person[4]}</em>
+    </article>
+  );
+}
+
+function FlyerCard({ name }: { name: string }) {
+  const initials = name.split(" ").map((part) => part[0]).join("").slice(0, 2);
+  return (
+    <article className="flyerCard">
+      <strong>SE BUSCA</strong>
+      <Avatar initials={initials} color="#e9c2a6" />
+      <span>{name}</span>
+      <small>{name.includes("Maria") ? "62 anos" : name.includes("Luis") ? "54 anos" : "28 anos"}</small>
+    </article>
+  );
+}
+
+function PublicFeed({ onUpload }: { onUpload: () => void }) {
+  return (
+    <section className="feedPage" aria-label="Publicaciones">
+      <div className="feedTitleRow">
+        <div>
+          <h1>Publicaciones</h1>
+          <p>Informacion publica publicada por familias y comunidad.</p>
+        </div>
+        <select aria-label="Orden del feed" defaultValue="recent">
+          <option value="recent">Mas recientes</option>
+          <option value="urgent">Mas urgentes</option>
+          <option value="signals">Senales de vida</option>
+        </select>
+      </div>
+      <div className="feedComposer">
+        <button type="button" onClick={onUpload}>Cargar historia</button>
+        <button type="button" onClick={onUpload}>Subir foto</button>
+        <button type="button" onClick={onUpload}>Publicar actualizacion</button>
+      </div>
+      <article className="signalFeedCard">
+        <span className="purpleCircle"><BookIcon /></span>
+        <div>
+          <h2>Señales de vida recientes</h2>
+          <p>Ultimas 24 horas en La Guaira</p>
+          <AvatarStack />
+        </div>
+        <strong>12<br /><small>personas encontradas</small></strong>
+      </article>
+      <article className="buildingFeedCard">
+        <span className="purpleCircle"><BuildingIcon /></span>
+        <div>
+          <h2>Edificio Atlantico</h2>
+          <p>4 personas reportadas</p>
+          <AvatarStack />
+        </div>
+        <span className="riskBadge">ALTO RIESGO</span>
+      </article>
+      {DEMO_POSTS.map((post) => <FeedPost key={post.author} post={post} />)}
+    </section>
+  );
+}
+
+function FeedPost({ post }: { post: (typeof DEMO_POSTS)[number] }) {
+  return (
+    <article className="feedPost">
+      <FlyerCard name={post.person} />
+      <div className="postBody">
+        <header>
+          <Avatar initials={post.author.slice(0, 2).toUpperCase()} color="#f0c7b8" />
+          <strong>{post.author}</strong>
+          <span>{post.role}</span>
+          <time>{post.time}</time>
+        </header>
+        <p>{post.text}</p>
+        <div className="postTags">
+          <span>{post.place}</span>
+          <b>{post.risk}</b>
+        </div>
+        <footer>
+          <button type="button">12</button>
+          <button type="button">5</button>
+          <button type="button">Compartir</button>
+        </footer>
+      </div>
+    </article>
+  );
+}
+
+function UploadPublicationModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+      <form className="modal uploadModal">
+        <header>
+          <div>
+            <span className="eyebrow">Publicacion familiar</span>
+            <h1 id="upload-title">Cargar historia, foto o flyer</h1>
+            <p className="helperText">Sube carteles, historias o fotos ya compartidas por familiares.</p>
+          </div>
+          <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
+        </header>
+        <label>
+          Archivo
+          <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+        </label>
+        <label>
+          Titulo
+          <input placeholder="SE BUSCA - Maria Rodriguez" />
+        </label>
+        <label>
+          Texto/caption publico
+          <textarea required rows={4} placeholder="Nombre, ubicacion y contexto para que pueda encontrarse en busqueda." />
+        </label>
+        <div className="inlineFields">
+          <label>Persona relacionada<input placeholder="Maria Rodriguez" /></label>
+          <label>Caso/edificio<input defaultValue={DEMO_CASE.title} /></label>
+        </div>
+        <p className="safetyNote">Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+        <div className="actions stickyActions">
+          <button type="button" onClick={onClose}>Publicar</button>
+          <button className="ghost" type="button" onClick={onClose}>Cancelar</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function BottomNav({ active, onReport }: { active: "map" | "feed"; onReport: () => void }) {
+  return (
+    <nav className="bottomNav" aria-label="Navegacion movil">
+      <a className={active === "map" ? "active" : ""} href="/">Mapa</a>
+      <a href="#buscar">Buscar</a>
+      <a className={active === "feed" ? "active" : ""} href="/feed">Feed</a>
+      <button type="button" onClick={onReport}>Reportar</button>
+    </nav>
+  );
+}
+
+function AppFooter() {
+  return (
+    <footer className="signalFooter">
+      <a href="#legal">Aviso legal</a>
+      <a href="#privacidad">Privacidad</a>
+      <span>Tips de seguridad</span>
+      <span>Canales oficiales</span>
+      <strong>12,842 voluntarios conectados</strong>
+    </footer>
+  );
+}
+
+function Avatar({ initials, color }: { initials: string; color: string }) {
+  return <span className="avatar" style={{ background: color }}>{initials}</span>;
+}
+
+function AvatarStack() {
+  return (
+    <div className="avatarStack">
+      {DEMO_PEOPLE.map((person) => <Avatar key={person[0]} initials={person[5]} color={person[6]} />)}
+      <span>+3</span>
+    </div>
+  );
+}
+
+function searchPublicContent(term: string) {
+  const needle = term.trim().toLowerCase();
+  if (!needle) return { people: [], cases: [], posts: [] };
+  const includes = (value: string) => value.toLowerCase().includes(needle);
+  return {
+    people: DEMO_PEOPLE.filter((person) => person.some(includes)).map((person) => `${person[0]} · ${person[1]}`).slice(0, 4),
+    cases: [DEMO_CASE.title, DEMO_CASE.subtitle, "Torre Miramar - Caso publico"].filter(includes).slice(0, 4),
+    posts: DEMO_POSTS.filter((post) => [post.author, post.person, post.text, post.place].some(includes)).map((post) => post.text).slice(0, 3)
+  };
+}
+
+function demoReport(code: string, lng: number, lat: number, priority: "P1" | "P2" | "P3", addressText: string, knownInfoPublic: string): PublicReport {
+  return {
+    id: code,
+    code,
+    location: { type: "Point", coordinates: [lng, lat] },
+    locationAccuracy: "approximate",
+    addressText,
+    type: "trapped_person",
+    derivedStatus: "confirmed",
+    priority,
+    priorityScore: priority === "P1" ? 95 : priority === "P2" ? 70 : 40,
+    peopleCount: "unknown",
+    knownInfoPublic,
+    signsOfLife: priority === "P1",
+    riskFlags: [],
+    publishContact: false,
+    possibleDuplicateCodes: [],
+    counters: { updates: 0, nearbyHelp: 0, resolutionClaims: 0, reopenClaims: 0, abuseFlags: 0 },
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function HeartIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 28s-12-7.5-12-16A7 7 0 0 1 16 7a7 7 0 0 1 12 5c0 8.5-12 16-12 16Z" />
+      <path d="M7 16h5l2-5 4 10 2-5h5" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" /></svg>;
+}
+
+function BellIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>;
+}
+
+function BuildingIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h14v17M9 8h1m4 0h1M9 12h1m4 0h1M9 16h1m4 0h1M3 21h18" /></svg>;
+}
+
+function TargetIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-14v3m0 14v3M2 12h3m14 0h3" /></svg>;
+}
+
+function LayerIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" /></svg>;
+}
+
+function BookIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a4 4 0 0 1 4-2h12v16H8a4 4 0 0 0-4 2V5Zm0 0v16" /></svg>;
+}
+
+function MiniIcon({ tone }: { tone: string }) {
+  if (tone === "purple") return <BuildingIcon />;
+  if (tone === "plain") return <LayerIcon />;
+  return <HeartIcon />;
 }

@@ -1,14 +1,14 @@
 {
-  "name": "MapaRescate Venezuela",
-  "short_name": "MapaRescate",
-  "description": "Mapa publico para reportar y actualizar emergencias geolocalizadas en Venezuela.",
+  "name": "SeñalVida",
+  "short_name": "SeñalVida",
+  "description": "Mapa publico de personas atrapadas, señales de vida y ultima ubicacion en Venezuela.",
   "lang": "es-VE",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#0f766e",
-  "background_color": "#eef3f2",
+  "theme_color": "#dc2626",
+  "background_color": "#f8fafc",
   "icons": [
     {
       "src": "/favicon.svg",
