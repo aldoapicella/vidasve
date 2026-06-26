@@ -64,6 +64,21 @@ export async function createEvent(code: string, type: EventType, payload: Record
 
 export async function createPost(code: string, payload: Record<string, unknown>) {
   const challenge = await proof("public_post");
+  const file = payload.file instanceof File && payload.file.size > 0 ? payload.file : undefined;
+  if (file) {
+    const body = new FormData();
+    for (const [key, value] of Object.entries({ ...payload, deviceId: getDeviceId() })) {
+      if (key === "file" || value === undefined || value === null || value === "") continue;
+      if (Array.isArray(value)) value.forEach((item) => body.append(key, String(item)));
+      else body.append(key, String(value));
+    }
+    body.append("challenge", JSON.stringify(challenge));
+    body.append("file", file);
+    return request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
+      method: "POST",
+      body
+    });
+  }
   return request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
     method: "POST",
     body: JSON.stringify({ ...payload, deviceId: getDeviceId(), challenge })
@@ -80,7 +95,7 @@ async function proof(action: PowAction): Promise<{ challenge: Challenge; solutio
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {};
-  if (init.body) headers["Content-Type"] = "application/json";
+  if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
   if (init.method && init.method !== "GET") headers["x-device-id"] = getDeviceId();
 
   const response = await fetch(`${API_BASE}${path}`, {

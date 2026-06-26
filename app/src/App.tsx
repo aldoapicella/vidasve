@@ -260,6 +260,15 @@ export function App() {
     window.setTimeout(() => setToast(null), 4200);
   }
 
+  function beginReportFlow() {
+    if (pickedLocation || !config.azureMapsClientId) {
+      setCreateOpen(true);
+      return;
+    }
+    setPickHint(true);
+    showToast("Toca el punto del mapa donde ocurre la emergencia.");
+  }
+
   function closeDetail() {
     setSelected(null);
     setEvents([]);
@@ -317,7 +326,7 @@ export function App() {
         onMapClick={handleMapClick}
       />
 
-      <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
+      <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={beginReportFlow} />
       {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
       <FilterChips
         value={filter}
@@ -341,8 +350,8 @@ export function App() {
       {!pickedLocation || selected ? (
         <div className="fabStack">
           {!pickedLocation ? (
-            <button className="primaryFab" type="button" onClick={() => setCreateOpen(true)}>
-              Reportar emergencia
+            <button className="primaryFab" type="button" onClick={beginReportFlow}>
+              {pickHint ? "Toca un punto del mapa" : "Reportar emergencia"}
             </button>
           ) : null}
           {selected ? (
@@ -370,7 +379,10 @@ export function App() {
 
       {pickHint && !pickedLocation ? (
         <section className="pickHint" role="status">
-          Toca el punto exacto dentro de las zonas activas. Luego confirma con "Reportar aqui".
+          <strong>Toca el punto exacto dentro de las zonas activas.</strong>
+          <span>Luego confirma con "Reportar aqui".</span>
+          <button type="button" onClick={() => setCreateOpen(true)}>Reportar sin punto exacto</button>
+          <button className="ghost" type="button" onClick={() => setPickHint(false)}>Cancelar</button>
         </section>
       ) : null}
 
@@ -421,7 +433,7 @@ export function App() {
         />
       ) : null}
 
-      <BottomNav active="map" onReport={() => setCreateOpen(true)} />
+      <BottomNav active="map" onReport={beginReportFlow} />
       <AppFooter />
       {toast ? <Toast message={toast} /> : null}
     </main>
@@ -803,6 +815,7 @@ function FeedPost({ post }: { post: PublicPost }) {
           <time>{new Date(post.createdAt).toLocaleString()}</time>
         </header>
         <p>{post.text}</p>
+        {post.mediaUrl ? <a className="mediaAttachment" href={post.mediaUrl} target="_blank" rel="noreferrer">Abrir archivo adjunto</a> : null}
         <div className="postTags">
           <span>{post.report.addressText}</span>
           <b>{post.report.priority}</b>
@@ -889,7 +902,8 @@ function UploadPublicationModal({
         text: form.get("text"),
         postType: form.get("postType"),
         personId: form.get("personId") || undefined,
-        tags: form.getAll("tags")
+        tags: form.getAll("tags"),
+        file: form.get("file")
       });
       onClose();
     } catch (err) {
@@ -906,7 +920,7 @@ function UploadPublicationModal({
           <div>
             <span className="eyebrow">Publicacion familiar</span>
             <h1 id="upload-title">Publicar historia o flyer</h1>
-            <p className="helperText">{enabled ? "Publica informacion y luego asocia archivo cuando Blob este activo." : "En este ambiente se guarda texto publico; archivos siguen desactivados."}</p>
+            <p className="helperText">{enabled ? "Publica texto y archivo validado por la API." : "En este ambiente se guarda texto publico; archivos siguen desactivados."}</p>
           </div>
           <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
         </header>
@@ -946,6 +960,12 @@ function UploadPublicationModal({
                 </select>
               </label>
             </div>
+            {enabled ? (
+              <label>
+                Archivo
+                <input name="file" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+              </label>
+            ) : null}
             <label>
               Texto publico
               <textarea name="text" required rows={4} maxLength={900} placeholder="Nombre, ubicacion, contexto, ultimo contacto o texto del flyer." />

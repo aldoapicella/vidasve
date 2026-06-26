@@ -409,6 +409,8 @@ resource functionAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     DEFAULT_CENTER_JSON: defaultCenterJson
     DEFAULT_ZOOM: defaultZoom
     MEDIA_UPLOADS_ENABLED: string(mediaUploadsEnabled)
+    MEDIA_STORAGE_ACCOUNT: mediaUploadsEnabled ? mediaStorageName : ''
+    MEDIA_CONTAINER: 'report-media'
     DAILY_MAP_TOKEN_SOFT_LIMIT: dailyMapTokenSoftLimit
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
   }

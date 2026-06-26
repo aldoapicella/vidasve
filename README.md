@@ -73,6 +73,8 @@ ALLOWED_BBOXES_JSON=[...]
 DEFAULT_CENTER_JSON=[10.6031,-66.9334]
 DEFAULT_ZOOM=11
 MEDIA_UPLOADS_ENABLED=false
+MEDIA_STORAGE_ACCOUNT=<solo si MEDIA_UPLOADS_ENABLED=true>
+MEDIA_CONTAINER=report-media
 DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
@@ -202,4 +204,4 @@ Pruebas incluidas:
 - Boton publico para abuso y senales de vida nuevas.
 - Retencion configurable de reportes y eventos.
 - Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.
-- Uploads de archivo/media desactivados por feature flag; las publicaciones de texto funcionan sin Blob Storage.
+- Uploads de archivo/media desactivados por feature flag; si se activa, la API acepta PNG/JPEG/WebP/PDF hasta 5MB y escribe en Azure Blob Storage.

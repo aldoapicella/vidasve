@@ -299,14 +299,39 @@ textarea {
 .pickHint {
   position: absolute;
   left: 16px;
-  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 64px);
-  z-index: 11;
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 194px);
+  z-index: 34;
   max-width: 360px;
   border-radius: 8px;
   padding: 12px 14px;
   background: var(--ink);
   color: #ffffff;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pickHint strong,
+.pickHint span {
+  flex: 0 0 100%;
+}
+
+.pickHint span {
+  color: #d8e3e0;
+  font-size: 13px;
+}
+
+.pickHint button {
+  min-height: 36px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.pickHint .ghost {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
 }
 
 .limitNotice {
@@ -1272,6 +1297,7 @@ svg {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  pointer-events: none;
 }
 
 .mapStatus > span {
@@ -1894,6 +1920,14 @@ svg {
   font-weight: 800;
 }
 
+.mediaAttachment {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 10px;
+  color: var(--sv-purple);
+  font-weight: 800;
+}
+
 .postTags {
   display: flex;
   flex-wrap: wrap;
@@ -2006,6 +2040,13 @@ svg {
     display: none;
   }
 
+  .pickHint {
+    left: 18px;
+    right: 18px;
+    bottom: 164px;
+    max-width: none;
+  }
+
   .mapCanvas,
   .fallbackMap {
     top: 146px;
@@ -2041,6 +2082,11 @@ svg {
   .bottomNav a,
   .bottomNav button {
     min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 0;
     background: transparent;
     color: #374151;
     text-decoration: none;
