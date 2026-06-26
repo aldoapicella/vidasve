@@ -138,7 +138,7 @@ export function MapView({
     return (
       <section className="fallbackMap" aria-label="Lista de reportes">
         <div>
-          <h1>MapaRescate Venezuela</h1>
+          <h1>VidasVE</h1>
           <p>Mapa no disponible. Se muestra la lista publica por zona.</p>
         </div>
         <div className="reportList">

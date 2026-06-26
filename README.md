@@ -1,4 +1,4 @@
-# MapaRescate Venezuela
+# VidasVE
 
 MVP P0: SPA publica con mapa primero, API en Azure Functions, Cosmos DB for NoSQL, Azure Maps sin subscription key en frontend, y despliegue por GitHub Actions con Azure OIDC.
 
@@ -12,6 +12,7 @@ infra/               Bicep
 ```
 
 La ruta `/` abre el mapa directamente. No hay landing page ni login obligatorio para reportar. La SPA incluye manifest PWA minimo para instalacion; el modo offline completo/outbox sigue limitado al banner de error y reintento.
+La SPA no muestra datos demo en produccion. Si necesitas la maqueta visual local, usa `VITE_DEMO_MODE=true`.
 
 ## Setup local
 
@@ -47,6 +48,12 @@ La SPA usa `/api` con proxy a la API productiva. Para usar Functions local:
 
 ```bash
 VITE_API_PROXY_TARGET=http://127.0.0.1:7071 npm run dev --workspace app
+```
+
+Demo visual local opcional:
+
+```bash
+VITE_DEMO_MODE=true npm run dev --workspace app
 ```
 
 ## Variables de entorno API

@@ -4,6 +4,7 @@ import { solvePow } from "../lib/pow";
 import { getDeviceId } from "../lib/deviceId";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+const SERVER_STATUSES = new Set(["new", "confirmed", "maybe_resolved", "resolved", "reopened"]);
 
 export async function getConfig(): Promise<PublicConfig> {
   return request<PublicConfig>("/config");
@@ -21,7 +22,7 @@ export async function listReports(
   if (bbox) params.set("bbox", bbox.map((value) => value.toFixed(5)).join(","));
   if (filter && filter !== "all") {
     if (filter.startsWith("P")) params.set("priority", filter);
-    else params.set("status", filter);
+    else if (SERVER_STATUSES.has(filter)) params.set("status", filter);
   }
   return request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports?${params}`);
 }

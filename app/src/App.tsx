@@ -14,6 +14,9 @@ const DEFAULT_CONFIG: PublicConfig = {
   features: { mediaUploads: false, geocoding: false }
 };
 
+const APP_NAME = "VidasVE";
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 const DEMO_CASE = {
   code: "VE-ATLANTICO",
   title: "Edificio Atlantico, La Guaira",
@@ -96,11 +99,11 @@ const DEMO_PINS = [
 ] as const;
 
 const FILTER_CHIPS = [
-  ["Señales de vida", "48", "red"],
-  ["Atrapados", "32", "orange"],
-  ["Voces/Golpes", "27", "yellow"],
-  ["Edificios con varias personas", "16", "purple"],
-  ["Feed", "", "plain"]
+  { label: "Todos", value: "all", tone: "plain" },
+  { label: "Señales de vida", value: "signals", tone: "red" },
+  { label: "Atrapados", value: "trapped", tone: "orange" },
+  { label: "Voces/Golpes", value: "voices", tone: "yellow" },
+  { label: "P1", value: "P1", tone: "purple" }
 ] as const;
 
 export function App() {
@@ -128,20 +131,21 @@ export function App() {
       new URLSearchParams(location.search).get("ownerToken");
     return match && token ? { code: decodeURIComponent(match[1]).toUpperCase(), token } : undefined;
   }, []);
+  const filteredReports = useMemo(() => applyReportFilter(reports, filter), [reports, filter]);
   const visibleReports = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
-    if (!needle) return reports;
-    return reports.filter((report) =>
-      [report.code, report.addressText, report.landmark, report.area, report.city, report.knownInfoPublic]
+    if (!needle) return filteredReports;
+    return filteredReports.filter((report) =>
+      [report.code, report.addressText, report.landmark, report.area, report.city, report.personDescriptionPublic, report.knownInfoPublic, report.lastContactText]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle))
     );
-  }, [reports, searchTerm]);
-  const mapReports = visibleReports.length ? visibleReports : DEMO_REPORTS;
+  }, [filteredReports, searchTerm]);
+  const mapReports = DEMO_MODE && !visibleReports.length && !searchTerm.trim() ? DEMO_REPORTS : visibleReports;
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
-  const searchResults = useMemo(() => searchPublicContent(searchTerm), [searchTerm]);
+  const searchResults = useMemo(() => searchPublicContent(searchTerm, reports), [searchTerm, reports]);
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -173,6 +177,10 @@ export function App() {
       setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
     }
   }, []);
+
+  useEffect(() => {
+    if (showFeed) void refreshReports(undefined, filter);
+  }, [filter, refreshReports, showFeed]);
 
   async function selectReport(report: PublicReport) {
     setSelected(report);
@@ -211,11 +219,15 @@ export function App() {
 
   if (showFeed) {
     return (
-      <main className="signalShell feedShell" aria-label="SeñalVida">
+      <main className="signalShell feedShell" aria-label={APP_NAME}>
         <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
         {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
-        <MobileSearchFilters />
-        <PublicFeed onUpload={() => setUploadOpen(true)} />
+        <PublicFeed
+          reports={visibleReports}
+          mediaUploadsEnabled={config.features.mediaUploads}
+          onUpload={() => setUploadOpen(true)}
+          onReport={() => setCreateOpen(true)}
+        />
         <BottomNav active="feed" onReport={() => setCreateOpen(true)} />
         {createOpen ? (
           <CreateReportModal
@@ -229,7 +241,7 @@ export function App() {
             }}
           />
         ) : null}
-        {uploadOpen ? <UploadPublicationModal onClose={() => setUploadOpen(false)} /> : null}
+        {uploadOpen ? <UploadPublicationModal enabled={config.features.mediaUploads} onClose={() => setUploadOpen(false)} /> : null}
         {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
         {toast ? <Toast message={toast} /> : null}
       </main>
@@ -237,7 +249,7 @@ export function App() {
   }
 
   return (
-    <main className={selected ? "signalShell detailOpen" : "signalShell"} aria-label="SeñalVida">
+    <main className={selected ? "signalShell detailOpen" : "signalShell"} aria-label={APP_NAME}>
       <MapView
         config={config}
         reports={mapReports}
@@ -250,11 +262,18 @@ export function App() {
 
       <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
       {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
-      <MobileSearchFilters />
-      <FilterChips />
-      <MapControls />
-      <DemoPins onOpenCase={() => setSelected(null)} />
+      <FilterChips
+        value={filter}
+        reports={reports}
+        onChange={(next) => {
+          setFilter(next);
+          void refreshReports(undefined, next);
+        }}
+      />
+      {DEMO_MODE ? <MapControls /> : null}
+      {DEMO_MODE ? <DemoPins onOpenCase={() => setSelected(null)} /> : null}
       <MapStatus zoneNames={zoneNames || "Caracas, La Guaira"} />
+      {!DEMO_MODE && !selected && !pickedLocation ? <MapEmptyState reports={visibleReports} searchTerm={searchTerm} /> : null}
 
       {reportsTruncated ? (
         <section className={pickHint && !pickedLocation ? "limitNotice abovePickHint" : "limitNotice"} role="status">
@@ -314,7 +333,7 @@ export function App() {
       ) : null}
 
       {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
-      {uploadOpen ? <UploadPublicationModal onClose={() => setUploadOpen(false)} /> : null}
+      {uploadOpen ? <UploadPublicationModal enabled={config.features.mediaUploads} onClose={() => setUploadOpen(false)} /> : null}
 
       {selected ? (
         <ReportDetailDrawer
@@ -324,7 +343,7 @@ export function App() {
           onClose={closeDetail}
           onEvent={(type, message, reason) => sendEvent(type, message, reason)}
         />
-      ) : (
+      ) : DEMO_MODE ? (
         <CasePreviewPanel
           onUpload={() => setUploadOpen(true)}
           onReport={() => setCreateOpen(true)}
@@ -336,7 +355,7 @@ export function App() {
           }}
           onAbuse={() => showToast("Denuncia recibida: el reporte se mantiene visible mientras se revisan señales independientes.")}
         />
-      )}
+      ) : null}
 
       <BottomNav active="map" onReport={() => setCreateOpen(true)} />
       <AppFooter />
@@ -386,9 +405,9 @@ function SignalHeader({
 }) {
   return (
     <header className="signalHeader">
-      <a className="signalBrand" href="/" aria-label="SeñalVida inicio">
+      <a className="signalBrand" href="/" aria-label={`${APP_NAME} inicio`}>
         <span className="heartMark" aria-hidden="true"><HeartIcon /></span>
-        <span>Señal<span>Vida</span></span>
+        <span>Vidas<span>VE</span></span>
       </a>
       <label className="signalSearch">
         <SearchIcon />
@@ -400,25 +419,38 @@ function SignalHeader({
         />
       </label>
       <nav className="headerLinks" aria-label="Accesos">
-        <a href="#como-funciona">Como funciona</a>
-        <a href="#ayuda">Centro de ayuda</a>
-        <button className="bellButton" type="button" aria-label="Alertas"><BellIcon /><span>3</span></button>
+        <a href="/feed">Feed publico</a>
         <button className="reportButton" type="button" onClick={onReport}>Reportar <span aria-hidden="true">+</span></button>
       </nav>
     </header>
   );
 }
 
-function FilterChips() {
+function FilterChips({
+  value,
+  reports,
+  onChange
+}: {
+  value: string;
+  reports: PublicReport[];
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="signalFilters" aria-label="Filtros del mapa">
-      {FILTER_CHIPS.map(([label, count, tone]) => (
-        <a key={label} className={`signalChip ${tone}`} href={label === "Feed" ? "/feed" : "#mapa"}>
+      {FILTER_CHIPS.map(({ label, value: filterValue, tone }) => (
+        <button
+          key={filterValue}
+          className={`signalChip ${tone} ${value === filterValue ? "active" : ""}`}
+          type="button"
+          onClick={() => onChange(filterValue)}
+          aria-pressed={value === filterValue}
+        >
           <span className="chipIcon" aria-hidden="true"><MiniIcon tone={tone} /></span>
           <span>{label}</span>
-          {count ? <b>{count}</b> : null}
-        </a>
+          <b>{applyReportFilter(reports, filterValue).length}</b>
+        </button>
       ))}
+      <a className="signalChip plain" href="/feed"><span className="chipIcon" aria-hidden="true"><LayerIcon /></span><span>Feed</span></a>
     </div>
   );
 }
@@ -436,9 +468,9 @@ function MobileSearchFilters() {
 function SearchOverlay({ results }: { results: ReturnType<typeof searchPublicContent> }) {
   return (
     <section className="searchOverlay" aria-label="Resultados de busqueda">
-      <SearchGroup title="Personas encontradas" items={results.people} />
-      <SearchGroup title="Edificios encontrados" items={results.cases} />
-      <SearchGroup title="Publicaciones recientes" items={results.posts} />
+      <SearchGroup title="Reportes encontrados" items={results.reports} />
+      <SearchGroup title="Ubicaciones" items={results.locations} />
+      <SearchGroup title="Informacion publica" items={results.info} />
       <a className="viewAllResults" href="/feed">Ver todos los resultados</a>
     </section>
   );
@@ -497,6 +529,16 @@ function MapStatus({ zoneNames }: { zoneNames: string }) {
 
 function Toast({ message }: { message: string }) {
   return <div className="toast" role="status">{message}</div>;
+}
+
+function MapEmptyState({ reports, searchTerm }: { reports: PublicReport[]; searchTerm: string }) {
+  if (reports.length) return null;
+  return (
+    <section className="mapEmptyState" role="status">
+      <strong>{searchTerm.trim() ? "Sin resultados" : "Sin reportes visibles"}</strong>
+      <p>{searchTerm.trim() ? "Prueba otro nombre, codigo o referencia." : "Acerca el mapa o toca un punto dentro de la zona afectada para reportar."}</p>
+    </section>
+  );
 }
 
 function CasePreviewPanel({
@@ -598,7 +640,19 @@ function FlyerCard({ name }: { name: string }) {
   );
 }
 
-function PublicFeed({ onUpload }: { onUpload: () => void }) {
+function PublicFeed({
+  reports,
+  mediaUploadsEnabled,
+  onUpload,
+  onReport
+}: {
+  reports: PublicReport[];
+  mediaUploadsEnabled: boolean;
+  onUpload: () => void;
+  onReport: () => void;
+}) {
+  const signalCount = reports.filter((report) => report.signsOfLife).length;
+  const urgentCount = reports.filter((report) => report.priority === "P1").length;
   return (
     <section className="feedPage" aria-label="Publicaciones">
       <div className="feedTitleRow">
@@ -613,60 +667,81 @@ function PublicFeed({ onUpload }: { onUpload: () => void }) {
         </select>
       </div>
       <div className="feedComposer">
-        <button type="button" onClick={onUpload}>Cargar historia</button>
-        <button type="button" onClick={onUpload}>Subir foto</button>
-        <button type="button" onClick={onUpload}>Publicar actualizacion</button>
+        {mediaUploadsEnabled ? (
+          <>
+            <button type="button" onClick={onUpload}>Cargar historia</button>
+            <button type="button" onClick={onUpload}>Subir foto</button>
+          </>
+        ) : <span className="uploadDisabledNote">Uploads desactivados</span>}
+        <button type="button" onClick={onReport}>Reportar emergencia</button>
       </div>
       <article className="signalFeedCard">
         <span className="purpleCircle"><BookIcon /></span>
         <div>
-          <h2>Señales de vida recientes</h2>
-          <p>Ultimas 24 horas en La Guaira</p>
-          <AvatarStack />
+          <h2>Señales de vida</h2>
+          <p>Reportes activos dentro de la zona afectada</p>
         </div>
-        <strong>12<br /><small>personas encontradas</small></strong>
+        <strong>{signalCount}<br /><small>con señales</small></strong>
       </article>
       <article className="buildingFeedCard">
         <span className="purpleCircle"><BuildingIcon /></span>
         <div>
-          <h2>Edificio Atlantico</h2>
-          <p>4 personas reportadas</p>
-          <AvatarStack />
+          <h2>Prioridad P1</h2>
+          <p>Reportes que requieren atencion inmediata</p>
         </div>
-        <span className="riskBadge">ALTO RIESGO</span>
+        <span className="riskBadge">{urgentCount} activos</span>
       </article>
-      {DEMO_POSTS.map((post) => <FeedPost key={post.author} post={post} />)}
+      {reports.length ? reports.map((report) => <FeedPost key={report.code} report={report} />) : <FeedEmptyState />}
     </section>
   );
 }
 
-function FeedPost({ post }: { post: (typeof DEMO_POSTS)[number] }) {
+function FeedEmptyState() {
+  return (
+    <article className="feedEmptyState">
+      <strong>No hay publicaciones reales todavia.</strong>
+      <p>Cuando se creen reportes en las zonas activas, apareceran aqui por prioridad y fecha.</p>
+    </article>
+  );
+}
+
+function FeedPost({ report }: { report: PublicReport }) {
   return (
     <article className="feedPost">
-      <FlyerCard name={post.person} />
+      <ReportBadge report={report} />
       <div className="postBody">
         <header>
-          <Avatar initials={post.author.slice(0, 2).toUpperCase()} color="#f0c7b8" />
-          <strong>{post.author}</strong>
-          <span>{post.role}</span>
-          <time>{post.time}</time>
+          <Avatar initials={report.code.slice(-2)} color="#f0c7b8" />
+          <strong>{labelForType(report.type)}</strong>
+          <span>{report.code}</span>
+          <time>{new Date(report.updatedAt).toLocaleString()}</time>
         </header>
-        <p>{post.text}</p>
+        <p>{report.knownInfoPublic}</p>
         <div className="postTags">
-          <span>{post.place}</span>
-          <b>{post.risk}</b>
+          <span>{report.addressText}</span>
+          <b>{report.priority}</b>
+          {report.signsOfLife ? <b>Señales de vida</b> : null}
         </div>
         <footer>
-          <button type="button">12</button>
-          <button type="button">5</button>
-          <button type="button">Compartir</button>
+          <a className="feedAction" href={`/r/${report.code}`}>Abrir ficha</a>
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/r/${report.code}`)}>Compartir</button>
         </footer>
       </div>
     </article>
   );
 }
 
-function UploadPublicationModal({ onClose }: { onClose: () => void }) {
+function ReportBadge({ report }: { report: PublicReport }) {
+  return (
+    <article className="flyerCard reportBadge">
+      <strong>{report.priority}</strong>
+      <span>{report.code}</span>
+      <small>{statusLabel(report.derivedStatus)}</small>
+    </article>
+  );
+}
+
+function UploadPublicationModal({ enabled, onClose }: { enabled: boolean; onClose: () => void }) {
   return (
     <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="upload-title">
       <form className="modal uploadModal">
@@ -674,29 +749,31 @@ function UploadPublicationModal({ onClose }: { onClose: () => void }) {
           <div>
             <span className="eyebrow">Publicacion familiar</span>
             <h1 id="upload-title">Cargar historia, foto o flyer</h1>
-            <p className="helperText">Sube carteles, historias o fotos ya compartidas por familiares.</p>
+            <p className="helperText">{enabled ? "Sube carteles, historias o fotos ya compartidas por familiares." : "Uploads no estan activados en este ambiente."}</p>
           </div>
           <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
         </header>
-        <label>
-          Archivo
-          <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
-        </label>
-        <label>
-          Titulo
-          <input placeholder="SE BUSCA - Maria Rodriguez" />
-        </label>
-        <label>
-          Texto/caption publico
-          <textarea required rows={4} placeholder="Nombre, ubicacion y contexto para que pueda encontrarse en busqueda." />
-        </label>
-        <div className="inlineFields">
-          <label>Persona relacionada<input placeholder="Maria Rodriguez" /></label>
-          <label>Caso/edificio<input defaultValue={DEMO_CASE.title} /></label>
-        </div>
-        <p className="safetyNote">Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+        {enabled ? (
+          <>
+            <label>
+              Archivo
+              <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+            </label>
+            <label>
+              Titulo
+              <input placeholder="SE BUSCA - nombre de la persona" />
+            </label>
+            <label>
+              Texto/caption publico
+              <textarea required rows={4} placeholder="Nombre, ubicacion y contexto para que pueda encontrarse en busqueda." />
+            </label>
+            <p className="safetyNote">Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+          </>
+        ) : (
+          <p className="safetyNote">Activa `MEDIA_UPLOADS_ENABLED=true` y configura Azure Blob Storage antes de aceptar archivos publicos.</p>
+        )}
         <div className="actions stickyActions">
-          <button type="button" onClick={onClose}>Publicar</button>
+          {enabled ? <button type="button" onClick={onClose}>Publicar</button> : null}
           <button className="ghost" type="button" onClick={onClose}>Cancelar</button>
         </div>
       </form>
@@ -722,7 +799,7 @@ function AppFooter() {
       <a href="#privacidad">Privacidad</a>
       <span>Tips de seguridad</span>
       <span>Canales oficiales</span>
-      <strong>12,842 voluntarios conectados</strong>
+      <strong>{APP_NAME} Venezuela</strong>
     </footer>
   );
 }
@@ -740,15 +817,42 @@ function AvatarStack() {
   );
 }
 
-function searchPublicContent(term: string) {
+function applyReportFilter(reports: PublicReport[], filter: string): PublicReport[] {
+  if (filter === "signals") return reports.filter((report) => report.signsOfLife);
+  if (filter === "trapped") return reports.filter((report) => report.type === "trapped_person" || report.type === "collapsed_building_unknown");
+  if (filter === "voices") return reports.filter((report) => report.type === "voices_or_hits");
+  if (filter.startsWith("P")) return reports.filter((report) => report.priority === filter);
+  if (filter !== "all") return reports.filter((report) => report.derivedStatus === filter);
+  return reports;
+}
+
+function searchPublicContent(term: string, reports: PublicReport[]) {
   const needle = term.trim().toLowerCase();
-  if (!needle) return { people: [], cases: [], posts: [] };
-  const includes = (value: string) => value.toLowerCase().includes(needle);
+  if (!needle) return { reports: [], locations: [], info: [] };
+  const includes = (value: string | undefined) => value?.toLowerCase().includes(needle);
+  const matches = reports.filter((report) =>
+    [report.code, report.addressText, report.landmark, report.area, report.city, report.personDescriptionPublic, report.knownInfoPublic, report.lastContactText]
+      .some(includes)
+  );
   return {
-    people: DEMO_PEOPLE.filter((person) => person.some(includes)).map((person) => `${person[0]} · ${person[1]}`).slice(0, 4),
-    cases: [DEMO_CASE.title, DEMO_CASE.subtitle, "Torre Miramar - Caso publico"].filter(includes).slice(0, 4),
-    posts: DEMO_POSTS.filter((post) => [post.author, post.person, post.text, post.place].some(includes)).map((post) => post.text).slice(0, 3)
+    reports: matches.map((report) => `${report.code} · ${labelForType(report.type)} · ${report.priority}`).slice(0, 5),
+    locations: matches.map((report) => report.addressText).filter(Boolean).slice(0, 5),
+    info: matches.map((report) => report.personDescriptionPublic || report.knownInfoPublic).filter(Boolean).slice(0, 5)
   };
+}
+
+function labelForType(type: PublicReport["type"]): string {
+  const labels: Record<PublicReport["type"], string> = {
+    trapped_person: "Persona atrapada",
+    missing_last_seen: "Ultima ubicacion",
+    voices_or_hits: "Voces o golpes",
+    collapsed_building_unknown: "Estructura colapsada"
+  };
+  return labels[type];
+}
+
+function statusLabel(status: string): string {
+  return status.replace(/_/g, " ");
 }
 
 function demoReport(code: string, lng: number, lat: number, priority: "P1" | "P2" | "P3", addressText: string, knownInfoPublic: string): PublicReport {
