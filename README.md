@@ -11,7 +11,7 @@ infra/               Bicep
 .github/workflows/   CI y deploy
 ```
 
-La ruta `/` abre el mapa directamente. No hay landing page ni login obligatorio para reportar.
+La ruta `/` abre el mapa directamente. No hay landing page ni login obligatorio para reportar. La SPA incluye manifest PWA minimo para instalacion; el modo offline completo/outbox sigue limitado al banner de error y reintento.
 
 ## Setup local
 
@@ -70,6 +70,7 @@ DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
 No configures Azure Maps subscription key en la SPA. El frontend pide `/api/maps/token` y la Function obtiene el token con Managed Identity.
+Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el area. No hay clustering server-side todavia.
 
 ## Infraestructura
 
@@ -179,6 +180,7 @@ Pruebas incluidas:
 - Honeypot en formulario de reporte.
 - Rate limits por IP, device, contacto, reporte y geoCell.
 - Owner token privado con HMAC; enlaces nuevos lo llevan en hash fragment.
+- Owner token limitado al reporte del enlace privado; no se propaga al navegar a otros reportes.
 - Cierres no destructivos.
 - Eventos append-only.
 - Cierre comunitario solo por multiples senales independientes.
@@ -187,4 +189,5 @@ Pruebas incluidas:
 - Contactos no salen en respuestas publicas por defecto.
 - Boton publico para abuso y senales de vida nuevas.
 - Retencion configurable de reportes y eventos.
+- Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.
 - Media uploads desactivado por feature flag.

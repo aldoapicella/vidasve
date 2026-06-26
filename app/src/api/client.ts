@@ -13,15 +13,17 @@ export async function getMapToken(): Promise<{ token: string; expiresOn: string 
   return request<{ token: string; expiresOn: string }>("/maps/token");
 }
 
-export async function listReports(bbox?: [number, number, number, number], filter?: string): Promise<PublicReport[]> {
+export async function listReports(
+  bbox?: [number, number, number, number],
+  filter?: string
+): Promise<{ items: PublicReport[]; truncated: boolean; limit: number }> {
   const params = new URLSearchParams();
   if (bbox) params.set("bbox", bbox.map((value) => value.toFixed(5)).join(","));
   if (filter && filter !== "all") {
     if (filter.startsWith("P")) params.set("priority", filter);
     else params.set("status", filter);
   }
-  const data = await request<{ items: PublicReport[] }>(`/reports?${params}`);
-  return data.items;
+  return request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports?${params}`);
 }
 
 export async function getReport(code: string): Promise<{ report: PublicReport; events: PublicEvent[] }> {

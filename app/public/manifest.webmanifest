@@ -1,0 +1,20 @@
+{
+  "name": "MapaRescate Venezuela",
+  "short_name": "MapaRescate",
+  "description": "Mapa publico para reportar y actualizar emergencias geolocalizadas en Venezuela.",
+  "lang": "es-VE",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0f766e",
+  "background_color": "#eef3f2",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

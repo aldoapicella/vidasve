@@ -22,16 +22,21 @@ export function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<PublicReport | null>(null);
   const [events, setEvents] = useState<PublicEvent[]>([]);
+  const [reportsTruncated, setReportsTruncated] = useState(false);
+  const [reportsLimit, setReportsLimit] = useState(500);
   const [createOpen, setCreateOpen] = useState(location.pathname === "/reportar");
   const [pickedLocation, setPickedLocation] = useState<[number, number] | undefined>();
   const [pickHint, setPickHint] = useState(false);
   const [created, setCreated] = useState<CreatedReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
-  const ownerToken = useMemo(
-    () => new URLSearchParams(location.hash.slice(1)).get("ownerToken") ?? new URLSearchParams(location.search).get("ownerToken") ?? undefined,
-    []
-  );
+  const privateAccess = useMemo(() => {
+    const match = location.pathname.match(/^\/r\/([^/]+)/);
+    const token =
+      new URLSearchParams(location.hash.slice(1)).get("ownerToken") ??
+      new URLSearchParams(location.search).get("ownerToken");
+    return match && token ? { code: decodeURIComponent(match[1]).toUpperCase(), token } : undefined;
+  }, []);
   const visibleReports = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return reports;
@@ -42,6 +47,8 @@ export function App() {
     );
   }, [reports, searchTerm]);
   const urgentCount = visibleReports.filter((report) => report.priority === "P1").length;
+  const selectedOwnerToken =
+    privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -64,7 +71,10 @@ export function App() {
 
   const refreshReports = useCallback(async (bbox?: [number, number, number, number], filterOverride?: string) => {
     try {
-      setReports(await listReports(bbox, filterOverride ?? filterRef.current));
+      const response = await listReports(bbox, filterOverride ?? filterRef.current);
+      setReports(response.items);
+      setReportsTruncated(response.truncated);
+      setReportsLimit(response.limit);
       setError(null);
     } catch {
       setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
@@ -85,7 +95,7 @@ export function App() {
 
   async function sendEvent(type: Parameters<typeof createEvent>[1], message: string, reason?: string) {
     if (!selected) return;
-    const response = await createEvent(selected.code, type, { message, reason }, ownerToken);
+    const response = await createEvent(selected.code, type, { message, reason }, selectedOwnerToken);
     setSelected(response.report);
     setEvents((current) => [...current, response.event]);
   }
@@ -124,17 +134,31 @@ export function App() {
             <span><b>{urgentCount}</b> P1</span>
           </div>
         </section>
-        <label className="searchBox">
-          <span>Buscar</span>
-          <input
-            aria-label="Buscar reportes"
-            placeholder="Codigo, zona o referencia"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-        </label>
+        <div className="searchBox">
+          <label htmlFor="report-search">Buscar</label>
+          <div className="searchControl">
+            <input
+              id="report-search"
+              aria-label="Buscar reportes"
+              placeholder="Codigo, zona o referencia"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+            {searchTerm ? (
+              <button className="clearSearch" type="button" aria-label="Limpiar busqueda" onClick={() => setSearchTerm("")}>
+                ×
+              </button>
+            ) : null}
+          </div>
+        </div>
         <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(undefined, next); }} />
       </div>
+
+      {reportsTruncated ? (
+        <section className={pickHint && !pickedLocation ? "limitNotice abovePickHint" : "limitNotice"} role="status">
+          Mostrando los {reportsLimit} reportes mas recientes. Acerca el mapa para ver una zona mas precisa.
+        </section>
+      ) : null}
 
       {!pickedLocation || selected ? (
         <div className="fabStack">
@@ -193,7 +217,7 @@ export function App() {
         <ReportDetailDrawer
           report={selected}
           events={events}
-          ownerToken={ownerToken}
+          ownerToken={selectedOwnerToken}
           onClose={closeDetail}
           onEvent={(type, message, reason) => sendEvent(type, message, reason)}
         />
@@ -211,7 +235,10 @@ function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onC
     <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="created-title">
       <section className="modal compactModal">
         <h1 id="created-title">Reporte creado: {created.code}</h1>
-        <p>Guarda este enlace privado. Solo con este enlace puedes marcar el reporte como resuelto de forma inmediata.</p>
+        <p>
+          Guarda este enlace privado. Solo con este enlace puedes marcar el reporte como resuelto de forma inmediata.
+          No lo compartas publicamente.
+        </p>
         <div className="copyField">{created.ownerEditUrl}</div>
         <div className="actions">
           <button type="button" onClick={() => void navigator.clipboard.writeText(created.ownerEditUrl)}>

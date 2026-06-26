@@ -23,8 +23,9 @@ app.http("reportsCreate", {
       const priorities = splitParam(request.query.get("priority"));
       const statuses = splitParam(request.query.get("status"));
       const since = request.query.get("since") ?? undefined;
-      const items = await getStore().listReports({ bbox, priorities, statuses, since, limit: 500 });
-      return json(request, 200, { items: items.map(publicReport) });
+      const limit = 500;
+      const items = await getStore().listReports({ bbox, priorities, statuses, since, limit });
+      return json(request, 200, { items: items.map(publicReport), truncated: items.length >= limit, limit });
     }
 
     const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>;
