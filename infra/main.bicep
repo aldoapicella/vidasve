@@ -40,7 +40,13 @@ var functionAppName = toLower('${appName}-api-${suffix}')
 var planName = toLower('${appName}-plan-${suffix}')
 var staticWebAppName = toLower('${appName}-web-${suffix}')
 var mapsName = toLower('${appName}-maps-${suffix}')
+var identityName = toLower('${appName}-id-${suffix}')
+var deploymentStorageContainerName = 'app-package-${take(functionAppName, 32)}-${take(suffix, 7)}'
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
+var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+var storageTableDataContributorRoleId = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 
 resource functionStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
@@ -51,18 +57,71 @@ resource functionStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   kind: 'StorageV2'
   properties: {
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
     minimumTlsVersion: 'TLS1_2'
   }
 }
 
-resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  name: '${functionStorage.name}/default/${deploymentStorageContainerName}'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource functionIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: identityName
+  location: location
+}
+
+resource functionStorageBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorage.id, functionIdentity.id, storageBlobDataOwnerRoleId)
+  scope: functionStorage
+  properties: {
+    principalId: functionIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
+  }
+}
+
+resource functionStorageBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorage.id, functionIdentity.id, storageBlobDataContributorRoleId)
+  scope: functionStorage
+  properties: {
+    principalId: functionIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+  }
+}
+
+resource functionStorageQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorage.id, functionIdentity.id, storageQueueDataContributorRoleId)
+  scope: functionStorage
+  properties: {
+    principalId: functionIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageQueueDataContributorRoleId)
+  }
+}
+
+resource functionStorageTableContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorage.id, functionIdentity.id, storageTableDataContributorRoleId)
+  scope: functionStorage
+  properties: {
+    principalId: functionIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageTableDataContributorRoleId)
+  }
+}
+
+resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: planName
   location: location
+  kind: 'functionapp'
   sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
+    name: 'FC1'
+    tier: 'FlexConsumption'
   }
-  kind: 'linux'
   properties: {
     reserved: true
   }
@@ -239,89 +298,73 @@ resource swa 'Microsoft.Web/staticSites@2023-12-01' = {
   properties: {}
 }
 
-resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
+resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${functionIdentity.id}': {}
+    }
   }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'NODE|20'
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${functionStorage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${functionStorage.listKeys().keys[0].value}'
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'node'
-        }
-        {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: '1'
-        }
-        {
-          name: 'APP_ENV'
-          value: 'prod'
-        }
-        {
-          name: 'APP_HMAC_SECRET'
-          value: appHmacSecret
-        }
-        {
-          name: 'PII_ENCRYPTION_KEY'
-          value: piiEncryptionKey
-        }
-        {
-          name: 'COSMOS_ENDPOINT'
-          value: cosmos.properties.documentEndpoint
-        }
-        {
-          name: 'COSMOS_DATABASE'
-          value: 'maparescate'
-        }
-        {
-          name: 'AZURE_MAPS_CLIENT_ID'
-          value: maps.properties.uniqueId
-        }
-        {
-          name: 'ALLOWED_ORIGINS'
-          value: allowedOrigins
-        }
-        {
-          name: 'PUBLIC_APP_URL'
-          value: publicAppUrl
-        }
-        {
-          name: 'ALLOWED_BBOXES_JSON'
-          value: allowedBboxesJson
-        }
-        {
-          name: 'DEFAULT_CENTER_JSON'
-          value: defaultCenterJson
-        }
-        {
-          name: 'DEFAULT_ZOOM'
-          value: defaultZoom
-        }
-        {
-          name: 'MEDIA_UPLOADS_ENABLED'
-          value: string(mediaUploadsEnabled)
-        }
-        {
-          name: 'DAILY_MAP_TOKEN_SOFT_LIMIT'
-          value: dailyMapTokenSoftLimit
-        }
-      ]
+      minTlsVersion: '1.2'
     }
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${functionStorage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+          authentication: {
+            type: 'UserAssignedIdentity'
+            userAssignedIdentityResourceId: functionIdentity.id
+          }
+        }
+      }
+      runtime: {
+        name: 'node'
+        version: '20'
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 40
+        instanceMemoryMB: 2048
+      }
+    }
+  }
+  dependsOn: [
+    functionStorageBlobOwner
+    functionStorageBlobContributor
+    functionStorageQueueContributor
+    functionStorageTableContributor
+  ]
+}
+
+resource functionAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
+  parent: functionApp
+  name: 'appsettings'
+  properties: {
+    AzureWebJobsStorage__accountName: functionStorage.name
+    AzureWebJobsStorage__credential: 'managedidentity'
+    AzureWebJobsStorage__clientId: functionIdentity.properties.clientId
+    FUNCTIONS_EXTENSION_VERSION: '~4'
+    AZURE_CLIENT_ID: functionIdentity.properties.clientId
+    APP_ENV: 'prod'
+    APP_HMAC_SECRET: appHmacSecret
+    PII_ENCRYPTION_KEY: piiEncryptionKey
+    COSMOS_ENDPOINT: cosmos.properties.documentEndpoint
+    COSMOS_DATABASE: 'maparescate'
+    AZURE_MAPS_CLIENT_ID: maps.properties.uniqueId
+    ALLOWED_ORIGINS: allowedOrigins
+    PUBLIC_APP_URL: publicAppUrl
+    ALLOWED_BBOXES_JSON: allowedBboxesJson
+    DEFAULT_CENTER_JSON: defaultCenterJson
+    DEFAULT_ZOOM: defaultZoom
+    MEDIA_UPLOADS_ENABLED: string(mediaUploadsEnabled)
+    DAILY_MAP_TOKEN_SOFT_LIMIT: dailyMapTokenSoftLimit
   }
 }
 
@@ -330,7 +373,7 @@ resource cosmosRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   name: guid(cosmos.id, functionApp.name, cosmosDataContributorRoleId)
   properties: {
     roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
-    principalId: functionApp.identity.principalId
+    principalId: functionIdentity.properties.principalId
     scope: cosmos.id
   }
 }
@@ -339,7 +382,7 @@ resource mapsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!em
   name: guid(maps.id, functionApp.name, azureMapsRoleDefinitionId)
   scope: maps
   properties: {
-    principalId: functionApp.identity.principalId
+    principalId: functionIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', azureMapsRoleDefinitionId)
   }
@@ -369,7 +412,7 @@ resource mediaRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (me
   name: guid(mediaStorage.id, functionApp.name, 'blob-data-contributor')
   scope: mediaStorage
   properties: {
-    principalId: functionApp.identity.principalId
+    principalId: functionIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
   }

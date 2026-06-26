@@ -8,4 +8,5 @@ infra/main.json
 !.env.example
 local.settings.json
 *.zip
+deploy-api/
 .DS_Store

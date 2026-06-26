@@ -108,7 +108,9 @@ Si la suscripcion ya uso el unico Cosmos free tier permitido, despliega con `ena
 
 ## GitHub Actions con Azure OIDC
 
-Configura federated credential en Azure para el repo de GitHub y agrega estas variables de GitHub:
+Configura un federated credential en Azure para el repo de GitHub. Puede ser sobre una app registration de Entra o sobre una User Assigned Managed Identity. Este despliegue usa la Managed Identity `maparescate-github-deploy` porque el tenant no permite registrar apps desde este usuario.
+
+Variables de GitHub requeridas:
 
 ```text
 AZURE_CLIENT_ID
@@ -132,6 +134,16 @@ PII_ENCRYPTION_KEY
 ```
 
 No se usa publish profile. `deploy-app.yml` obtiene el token de deploy de Static Web Apps durante el workflow con Azure CLI y lo enmascara.
+
+Valores productivos actuales:
+
+```text
+AZURE_RESOURCE_GROUP=rg-maparescate-prod
+AZURE_LOCATION=eastus2
+SWA_NAME=maparescate-web-j5oyin3m4kbek
+FUNCTION_APP_NAME=maparescate-api-j5oyin3m4kbek
+PUBLIC_APP_URL=https://ashy-sky-0df7fa50f.7.azurestaticapps.net
+```
 
 ## Pruebas y build
 
