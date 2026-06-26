@@ -111,10 +111,6 @@ export function App() {
             <span><b>{urgentCount}</b> P1</span>
           </div>
         </section>
-        <label className="searchBox">
-          <span>Zona</span>
-          <input aria-label="Buscar zona" placeholder="Caracas, La Guaira..." />
-        </label>
         <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(undefined, next); }} />
       </div>
 

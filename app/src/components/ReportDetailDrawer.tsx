@@ -17,6 +17,7 @@ export function ReportDetailDrawer({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<EventType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   async function submit(type: EventType, fallback: string, reason?: string) {
     setBusy(type);
@@ -28,6 +29,20 @@ export function ReportDetailDrawer({
       setError(err instanceof Error ? err.message : "No se pudo enviar la actualizacion.");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function shareReport() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: report.code, url: location.href });
+        return;
+      }
+      await navigator.clipboard.writeText(location.href);
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      setError("No se pudo compartir el enlace.");
     }
   }
 
@@ -85,8 +100,8 @@ export function ReportDetailDrawer({
           <button type="button" disabled={busy !== null} onClick={() => void submit("reopen_claim", "Hay informacion nueva para reabrir.")}>
             Reabrir con informacion
           </button>
-          <button type="button" disabled={busy !== null} onClick={() => void navigator.share?.({ title: report.code, url: location.href })}>
-            Compartir
+          <button type="button" disabled={busy !== null} onClick={() => void shareReport()}>
+            {shareCopied ? "Enlace copiado" : "Compartir"}
           </button>
         </div>
         {ownerToken ? (
