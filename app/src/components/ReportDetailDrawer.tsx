@@ -107,13 +107,13 @@ export function ReportDetailDrawer({
             Estoy cerca
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("new_signs_of_life", "Hay senales de vida nuevas.")}>
-            Hay senales de vida
+            Hay senales de vida ahora
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("duplicate_claim", "Puede ser duplicado.")}>
             Posible duplicado
           </button>
           <button type="button" disabled={busy !== null} onClick={reportRisk}>
-            Riesgo nuevo
+            Riesgo: gas/fuego/cables/agua
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("resolution_claim", "Creo que fue resuelto.")}>
             Informar posible resuelto
@@ -125,7 +125,7 @@ export function ReportDetailDrawer({
             {shareCopied ? "Enlace copiado" : "Compartir"}
           </button>
           <button className="dangerAction" type="button" disabled={busy !== null} onClick={reportAbuse}>
-            Reportar abuso
+            Abuso / informacion falsa
           </button>
         </div>
         {ownerToken ? (
