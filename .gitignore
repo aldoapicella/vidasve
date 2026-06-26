@@ -9,4 +9,6 @@ infra/main.json
 local.settings.json
 *.zip
 deploy-api/
+.playwright-cli/
+output/
 .DS_Store

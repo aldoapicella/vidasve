@@ -15,9 +15,18 @@ import { honeypotFilled, parseCreateReportInput, validateCreateReport } from "..
 app.http("reportsCreate", {
   route: "reports",
   authLevel: "anonymous",
-  methods: ["POST", "OPTIONS"],
+  methods: ["GET", "POST", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     if (request.method === "OPTIONS") return options(request);
+    if (request.method === "GET") {
+      const bbox = parseBbox(request.query.get("bbox"));
+      const priorities = splitParam(request.query.get("priority"));
+      const statuses = splitParam(request.query.get("status"));
+      const since = request.query.get("since") ?? undefined;
+      const items = await getStore().listReports({ bbox, priorities, statuses, since, limit: 500 });
+      return json(request, 200, { items: items.map(publicReport) });
+    }
+
     const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const store = getStore();
     const secret = env("APP_HMAC_SECRET", "dev-secret-change-me");
@@ -88,4 +97,15 @@ app.http("reportsCreate", {
 
 async function uniqueCode(): Promise<string> {
   return `VE-${randomBase64Url(4).replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 4).padEnd(4, "X")}`;
+}
+
+function parseBbox(value: string | null): [number, number, number, number] | undefined {
+  if (!value) return undefined;
+  const parts = value.split(",").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return undefined;
+  return parts as [number, number, number, number];
+}
+
+function splitParam(value: string | null): string[] | undefined {
+  return value?.split(",").map((item) => item.trim()).filter(Boolean);
 }

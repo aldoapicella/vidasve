@@ -1,7 +1,19 @@
 :root {
+  --ink: #101820;
+  --muted: #5a6673;
+  --surface: rgba(255, 255, 255, 0.96);
+  --surface-strong: #ffffff;
+  --line: #d7dee5;
+  --field: #f8fafc;
+  --primary: #0f766e;
+  --primary-strong: #115e59;
+  --danger: #b91c1c;
+  --warning: #b45309;
+  --info: #155e75;
+  --shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172026;
-  background: #f7faf9;
+  color: var(--ink);
+  background: #eef3f2;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -29,22 +41,22 @@ button,
 .button {
   min-height: 44px;
   border: 0;
-  border-radius: 8px;
-  background: #0f766e;
+  border-radius: 6px;
+  background: var(--primary);
   color: #ffffff;
-  padding: 0 16px;
+  padding: 0 18px;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, opacity 160ms ease;
 }
 
 button:hover,
 .button:hover {
-  background: #115e59;
+  background: var(--primary-strong);
 }
 
 button:focus-visible,
@@ -73,17 +85,23 @@ button:disabled {
   inset: 0;
   width: 100%;
   height: 100%;
-  background: #dbeafe;
+  background: #dbe7e5;
 }
 
 .fallbackMap {
-  padding: 96px 16px 120px;
+  padding: 136px 16px 120px;
   overflow: auto;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    #bccbc8;
+  background-size: 42px 42px;
 }
 
 .fallbackMap h1 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: 28px;
+  letter-spacing: 0;
 }
 
 .reportList {
@@ -95,9 +113,9 @@ button:disabled {
 .reportList button {
   justify-content: flex-start;
   gap: 10px;
-  background: #ffffff;
-  color: #172026;
-  border: 1px solid #d7e2df;
+  background: var(--surface-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
 }
 
 .topbar {
@@ -106,26 +124,63 @@ button:disabled {
   left: 12px;
   right: 12px;
   display: grid;
-  grid-template-columns: minmax(180px, 320px) 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(240px, 340px) minmax(180px, 280px) 1fr;
+  gap: 10px;
   align-items: start;
   z-index: 10;
 }
 
+.brandPanel,
 .searchBox {
   display: grid;
-  gap: 4px;
-  background: #ffffff;
-  border: 1px solid #c9d8d4;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 8px;
-  padding: 8px;
-  box-shadow: 0 8px 28px rgba(23, 32, 38, 0.12);
+  padding: 10px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
 
+.brandPanel {
+  background: rgba(16, 24, 32, 0.94);
+  color: #ffffff;
+}
+
+.brandPanel strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.eyebrow,
 .searchBox span {
-  font-size: 12px;
-  font-weight: 700;
-  color: #4b5563;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: #99f6e4;
+}
+
+.metricStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metricStrip span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #d8e3e0;
+  font-size: 13px;
 }
 
 .searchBox input,
@@ -134,11 +189,11 @@ select,
 textarea {
   width: 100%;
   min-height: 44px;
-  border: 1px solid #b8c8c4;
-  border-radius: 8px;
+  border: 1px solid #b9c4cf;
+  border-radius: 6px;
   padding: 10px 12px;
-  background: #ffffff;
-  color: #172026;
+  background: var(--field);
+  color: var(--ink);
 }
 
 textarea {
@@ -149,18 +204,19 @@ textarea {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 2px 2px 8px;
 }
 
 .filters button {
   white-space: nowrap;
-  background: #ffffff;
-  color: #172026;
-  border: 1px solid #c9d8d4;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .filters button.active {
-  background: #172026;
+  background: var(--ink);
   color: #ffffff;
 }
 
@@ -174,23 +230,23 @@ textarea {
 }
 
 .primaryFab {
-  min-width: 150px;
-  background: #dc2626;
-  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.28);
+  min-width: 190px;
+  background: var(--danger);
+  box-shadow: 0 14px 34px rgba(185, 28, 28, 0.32);
 }
 
 .primaryFab:hover {
-  background: #b91c1c;
+  background: #991b1b;
 }
 
 .secondaryFab,
 .button.secondary {
-  background: #2563eb;
+  background: var(--info);
 }
 
 .secondaryFab:hover,
 .button.secondary:hover {
-  background: #1d4ed8;
+  background: #164e63;
 }
 
 .offline {
@@ -204,22 +260,22 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 8px;
-  background: #172026;
+  border-radius: 6px;
+  background: var(--ink);
   color: #ffffff;
-  box-shadow: 0 12px 30px rgba(23, 32, 38, 0.22);
+  box-shadow: var(--shadow);
 }
 
 .offline button {
   background: #ffffff;
-  color: #172026;
+  color: var(--ink);
 }
 
 .scrim {
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(23, 32, 38, 0.55);
+  background: rgba(16, 24, 32, 0.62);
   display: grid;
   place-items: end center;
 }
@@ -228,10 +284,10 @@ textarea {
   width: min(760px, 100%);
   max-height: min(92dvh, 900px);
   overflow: auto;
-  background: #ffffff;
+  background: var(--surface-strong);
   border-radius: 8px 8px 0 0;
-  padding: 16px;
-  box-shadow: 0 -18px 40px rgba(23, 32, 38, 0.22);
+  padding: 18px;
+  box-shadow: 0 -22px 54px rgba(15, 23, 42, 0.26);
 }
 
 .compactModal {
@@ -251,7 +307,7 @@ textarea {
 .modal h1,
 .detailDrawer h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.2;
 }
 
@@ -268,11 +324,12 @@ textarea {
 }
 
 fieldset {
-  border: 1px solid #d7e2df;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 12px;
+  padding: 14px;
   display: grid;
   gap: 12px;
+  background: #fbfcfd;
 }
 
 legend {
@@ -330,12 +387,12 @@ label {
   position: sticky;
   bottom: 0;
   padding: 12px 0 0;
-  background: #ffffff;
+  background: var(--surface-strong);
 }
 
 .ghost {
-  background: #eef2f1;
-  color: #172026;
+  background: #eef2f6;
+  color: var(--ink);
 }
 
 .formError {
@@ -346,10 +403,10 @@ label {
 
 .copyField {
   border: 1px dashed #a8bab5;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 12px;
   word-break: break-all;
-  background: #f7faf9;
+  background: var(--field);
 }
 
 .detailDrawer {
@@ -360,13 +417,13 @@ label {
   z-index: 20;
   width: min(440px, 100%);
   overflow: auto;
-  background: #ffffff;
-  padding: max(18px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
-  box-shadow: -16px 0 36px rgba(23, 32, 38, 0.18);
+  background: var(--surface-strong);
+  padding: max(18px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+  box-shadow: -18px 0 46px rgba(15, 23, 42, 0.22);
 }
 
 .detailDrawer section {
-  border-top: 1px solid #e3ece9;
+  border-top: 1px solid var(--line);
   padding-top: 14px;
   margin-top: 14px;
 }
@@ -387,15 +444,15 @@ label {
 }
 
 .priority.p1 {
-  background: #dc2626;
+  background: var(--danger);
 }
 
 .priority.p2 {
-  background: #d97706;
+  background: var(--warning);
 }
 
 .priority.p3 {
-  background: #2563eb;
+  background: var(--info);
 }
 
 .lifeSignal,
@@ -423,9 +480,9 @@ label {
 }
 
 .eventGrid button {
-  background: #f3f7f6;
-  color: #172026;
-  border: 1px solid #c9d8d4;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line);
 }
 
 .ownerBox {

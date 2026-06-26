@@ -1,11 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "https://maparescate-api-j5oyin3m4kbek.azurewebsites.net";
+
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:7071"
+      "/api": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+        secure: true
+      }
     }
   }
 });

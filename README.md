@@ -43,10 +43,10 @@ cd app
 npm run dev
 ```
 
-La SPA usa `/api` con proxy a `http://127.0.0.1:7071`. Si quieres usar una API remota:
+La SPA usa `/api` con proxy a la API productiva. Para usar Functions local:
 
 ```bash
-VITE_API_BASE_URL=https://<function-app>.azurewebsites.net/api npm run dev
+VITE_API_PROXY_TARGET=http://127.0.0.1:7071 npm run dev --workspace app
 ```
 
 ## Variables de entorno API

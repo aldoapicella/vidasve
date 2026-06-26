@@ -26,6 +26,7 @@ export function App() {
   const [created, setCreated] = useState<CreatedReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ownerToken = useMemo(() => new URLSearchParams(location.search).get("ownerToken") ?? undefined, []);
+  const urgentCount = reports.filter((report) => report.priority === "P1").length;
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -88,6 +89,16 @@ export function App() {
       />
 
       <div className="topbar">
+        <section className="brandPanel" aria-label="Estado operativo">
+          <div>
+            <span className="eyebrow">MapaRescate Venezuela</span>
+            <strong>Mapa operativo</strong>
+          </div>
+          <div className="metricStrip" aria-label="Reportes visibles">
+            <span><b>{reports.length}</b> visibles</span>
+            <span><b>{urgentCount}</b> P1</span>
+          </div>
+        </section>
         <label className="searchBox">
           <span>Zona</span>
           <input aria-label="Buscar zona" placeholder="Caracas, La Guaira..." />
@@ -97,7 +108,7 @@ export function App() {
 
       <div className="fabStack">
         <button className="primaryFab" type="button" onClick={() => setCreateOpen(true)}>
-          + Reportar
+          Reportar emergencia
         </button>
         {selected ? (
           <button className="secondaryFab" type="button" onClick={() => void sendEvent("nearby_help", "Estoy cerca o llevando ayuda.")}>

@@ -21,6 +21,7 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<atlas.Map | null>(null);
   const sourceRef = useRef<atlas.source.DataSource | null>(null);
+  const reportsLayerRef = useRef<atlas.layer.BubbleLayer | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
 
   useEffect(() => {
@@ -46,12 +47,21 @@ export function MapView({
       sourceRef.current = source;
       mapRef.current = map;
       map.events.add("ready", () => {
+        const reportsLayer = new atlas.layer.BubbleLayer(source, "reports", {
+          filter: ["!", ["has", "point_count"]],
+          color: ["match", ["get", "priority"], "P1", "#b91c1c", "P2", "#b45309", "#155e75"],
+          radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 15, 10],
+          strokeColor: "#ffffff",
+          strokeWidth: 2,
+          blur: 0.08
+        });
+        reportsLayerRef.current = reportsLayer;
         map.sources.add(source);
         map.layers.add([
           new atlas.layer.BubbleLayer(source, "clusters", {
             filter: ["has", "point_count"],
-            color: "#0f766e",
-            radius: 20,
+            color: "#0f172a",
+            radius: 22,
             strokeColor: "#ffffff",
             strokeWidth: 2
           }),
@@ -59,15 +69,13 @@ export function MapView({
             filter: ["has", "point_count"],
             textOptions: { textField: ["get", "point_count_abbreviated"], color: "#ffffff", size: 13 }
           }),
-          new atlas.layer.BubbleLayer(source, "reports", {
-            filter: ["!", ["has", "point_count"]],
-            color: ["match", ["get", "priority"], "P1", "#dc2626", "P2", "#f59e0b", "#2563eb"],
-            radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 13, 9],
-            strokeColor: "#ffffff",
-            strokeWidth: 2
-          })
+          reportsLayer
         ]);
         map.events.add("moveend", () => onBoundsChange(bounds(map)));
+        map.events.add("click", reportsLayer, (event) => {
+          const report = reportFromShape(event.shapes?.[0]);
+          if (report) onReportSelect(report);
+        });
         map.events.add("click", (event) => {
           if (event.position) onMapClick([event.position[0], event.position[1]]);
         });
@@ -90,6 +98,12 @@ export function MapView({
     );
   }, [reports]);
 
+  useEffect(() => {
+    reportsLayerRef.current?.setOptions({
+      radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 15, 10]
+    });
+  }, [selectedCode]);
+
   if (mapFailed || !config.azureMapsClientId) {
     return (
       <section className="fallbackMap" aria-label="Lista de reportes">
@@ -111,6 +125,11 @@ export function MapView({
   }
 
   return <div ref={containerRef} className="mapCanvas" aria-label="Mapa de reportes" />;
+}
+
+function reportFromShape(shape?: atlas.data.Feature<atlas.data.Geometry, PublicReport> | atlas.Shape): PublicReport | undefined {
+  if (!shape) return undefined;
+  return "getProperties" in shape ? (shape.getProperties() as PublicReport) : shape.properties;
 }
 
 function bounds(map: atlas.Map): [number, number, number, number] | undefined {

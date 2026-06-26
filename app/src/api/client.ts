@@ -64,11 +64,14 @@ async function proof(action: PowAction): Promise<{ challenge: Challenge; solutio
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init.body) headers["Content-Type"] = "application/json";
+  if (init.method && init.method !== "GET") headers["x-device-id"] = getDeviceId();
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
-      "x-device-id": getDeviceId(),
+      ...headers,
       ...(init.headers ?? {})
     }
   });
