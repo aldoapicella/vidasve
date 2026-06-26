@@ -1,6 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
-import { verifyChallenge } from "../lib/challenge.js";
+import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { verifyHmacToken } from "../lib/crypto.js";
@@ -26,6 +26,7 @@ app.http("reportOwnerEvents", {
     const secret = env("APP_HMAC_SECRET", "dev-secret-change-me");
     const challenge = verifyChallenge(input.challenge, "owner_event", secret);
     if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
+    if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
     if (!verifyHmacToken(secret, input.ownerToken, report.ownerTokenHash)) {
       return json(request, 403, { ok: false, error: "bad_owner_token" });
     }

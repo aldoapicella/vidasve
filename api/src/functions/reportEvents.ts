@@ -1,6 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
-import { verifyChallenge } from "../lib/challenge.js";
+import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
@@ -27,6 +27,7 @@ app.http("reportEvents", {
     const action = input.type as PublicAction;
     const challenge = verifyChallenge(input.challenge, action, secret);
     if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
+    if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
 
     const actor = actorFromRequest(request, secret, { deviceId: input.deviceId, contact: input.contact });
     const rate = await checkRateLimits(store, action, {

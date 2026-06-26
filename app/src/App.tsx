@@ -19,6 +19,7 @@ export function App() {
   const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
   const [reports, setReports] = useState<PublicReport[]>([]);
   const [filter, setFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<PublicReport | null>(null);
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [createOpen, setCreateOpen] = useState(location.pathname === "/reportar");
@@ -27,8 +28,20 @@ export function App() {
   const [created, setCreated] = useState<CreatedReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
-  const ownerToken = useMemo(() => new URLSearchParams(location.search).get("ownerToken") ?? undefined, []);
-  const urgentCount = reports.filter((report) => report.priority === "P1").length;
+  const ownerToken = useMemo(
+    () => new URLSearchParams(location.hash.slice(1)).get("ownerToken") ?? new URLSearchParams(location.search).get("ownerToken") ?? undefined,
+    []
+  );
+  const visibleReports = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+    if (!needle) return reports;
+    return reports.filter((report) =>
+      [report.code, report.addressText, report.landmark, report.area, report.city, report.knownInfoPublic]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle))
+    );
+  }, [reports, searchTerm]);
+  const urgentCount = visibleReports.filter((report) => report.priority === "P1").length;
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -64,7 +77,7 @@ export function App() {
       const data = await getReport(report.code);
       setSelected(data.report);
       setEvents(data.events);
-      history.replaceState(null, "", `/r/${report.code}${ownerToken ? `?ownerToken=${ownerToken}` : ""}`);
+      history.replaceState(null, "", `/r/${report.code}`);
     } catch {
       setError("No se pudo cargar el detalle.");
     }
@@ -92,7 +105,7 @@ export function App() {
     <main className={selected ? "shell detailOpen" : "shell"} aria-label="MapaRescate Venezuela">
       <MapView
         config={config}
-        reports={reports}
+        reports={visibleReports}
         selectedCode={selected?.code}
         pickedLocation={pickedLocation}
         onBoundsChange={refreshReports}
@@ -107,10 +120,19 @@ export function App() {
             <strong>Mapa operativo</strong>
           </div>
           <div className="metricStrip" aria-label="Reportes visibles">
-            <span><b>{reports.length}</b> visibles</span>
+            <span><b>{visibleReports.length}</b> visibles</span>
             <span><b>{urgentCount}</b> P1</span>
           </div>
         </section>
+        <label className="searchBox">
+          <span>Buscar</span>
+          <input
+            aria-label="Buscar reportes"
+            placeholder="Codigo, zona o referencia"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+        </label>
         <FiltersBar value={filter} onChange={(next) => { setFilter(next); void refreshReports(undefined, next); }} />
       </div>
 

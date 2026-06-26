@@ -10,6 +10,7 @@ export interface RateLimitIdentity {
 
 export interface RateLimitStore {
   increment(bucket: string, windowSeconds: number, now: Date): Promise<number>;
+  claimOnce(bucket: string, windowSeconds: number, now: Date): Promise<boolean>;
 }
 
 type Limit = { key: keyof RateLimitIdentity; windowSeconds: number; max: number; label: string };
@@ -67,6 +68,13 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     }
     current.count += 1;
     return current.count;
+  }
+
+  async claimOnce(bucket: string, windowSeconds: number, now = new Date()): Promise<boolean> {
+    const current = this.buckets.get(bucket);
+    if (current && current.resetAt > now.getTime()) return false;
+    this.buckets.set(bucket, { count: 1, resetAt: now.getTime() + windowSeconds * 1000 });
+    return true;
   }
 }
 

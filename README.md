@@ -102,8 +102,10 @@ Valores reales que debes configurar:
 - `allowedOrigins`
 - `publicAppUrl`
 - `azureMapsRoleDefinitionId` si quieres que Bicep haga el role assignment de Azure Maps en tu tenant
+- `budgetContactEmailsJson` opcional, ejemplo `["ops@example.com"]`, para crear alertas de costo
+- `reportRetentionSeconds` y `eventRetentionSeconds` opcionales; default 90 dias
 
-Cosmos se crea con free tier y throughput compartido de 1000 RU/s. Blob Storage de media solo se crea si `mediaUploadsEnabled=true`.
+Cosmos se crea con free tier, throughput compartido de 1000 RU/s y TTL configurable para reportes/eventos. Application Insights se crea para la Function App. Blob Storage de media solo se crea si `mediaUploadsEnabled=true`.
 Si la suscripcion ya uso el unico Cosmos free tier permitido, despliega con `enableCosmosFreeTier=false`.
 
 ## GitHub Actions con Azure OIDC
@@ -124,6 +126,8 @@ PUBLIC_APP_URL
 SWA_NAME
 FUNCTION_APP_NAME
 AZURE_MAPS_ROLE_DEFINITION_ID
+BUDGET_CONTACT_EMAILS_JSON opcional, ejemplo ["ops@example.com"]
+MONTHLY_BUDGET_AMOUNT opcional, default 25
 ```
 
 Secrets de GitHub:
@@ -152,24 +156,35 @@ npm run test
 npm run build
 ```
 
+Health checks:
+
+```bash
+curl https://<function-app>.azurewebsites.net/api/health
+curl https://<function-app>.azurewebsites.net/api/health/deep
+```
+
 Pruebas incluidas:
 
 - `calculatePriority`
 - `deriveStatus`
 - proof-of-work challenge
+- proof-of-work replay
 - rate limit
 
 ## Reglas P0 implementadas
 
 - Reportar sin login.
 - Proof-of-work en mutaciones.
+- Challenge proof-of-work de un solo uso.
 - Honeypot en formulario de reporte.
 - Rate limits por IP, device, contacto, reporte y geoCell.
-- Owner token privado con HMAC.
+- Owner token privado con HMAC; enlaces nuevos lo llevan en hash fragment.
 - Cierres no destructivos.
 - Eventos append-only.
 - Cierre comunitario solo por multiples senales independientes.
 - Reapertura publica y por owner token.
 - Dedupe basico al crear reporte.
 - Contactos no salen en respuestas publicas por defecto.
+- Boton publico para abuso y senales de vida nuevas.
+- Retencion configurable de reportes y eventos.
 - Media uploads desactivado por feature flag.

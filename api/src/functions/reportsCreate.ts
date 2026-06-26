@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
-import { verifyChallenge } from "../lib/challenge.js";
+import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { encryptText, hashSecret, randomBase64Url } from "../lib/crypto.js";
@@ -40,6 +40,7 @@ app.http("reportsCreate", {
 
     const challenge = verifyChallenge(input.challenge, "create_report", secret);
     if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
+    if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
 
     const validationError = validateCreateReport(input);
     if (validationError) return json(request, 400, { ok: false, error: validationError });
@@ -88,7 +89,7 @@ app.http("reportsCreate", {
       ok: true,
       code: report.code,
       publicUrl,
-      ownerEditUrl: `${publicUrl}?ownerToken=${ownerToken}`,
+      ownerEditUrl: `${publicUrl}#ownerToken=${ownerToken}`,
       report: publicReport(updated),
       message: "Reporte recibido. Guarda el enlace privado para actualizar o marcar como resuelto."
     });

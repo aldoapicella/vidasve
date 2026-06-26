@@ -18,6 +18,10 @@ export const ACTION_DIFFICULTY: Record<PublicAction, number> = {
 
 const MAX_AGE_MS = 5 * 60 * 1000;
 
+interface ChallengeReplayStore {
+  claimOnce(bucket: string, windowSeconds: number, now: Date): Promise<boolean>;
+}
+
 function payload(challenge: Omit<ChallengeEnvelope, "signature">): string {
   return `${challenge.nonce}.${challenge.issuedAt}.${challenge.action}.${challenge.difficulty}`;
 }
@@ -86,4 +90,8 @@ export function verifyChallenge(
   }
 
   return { ok: true };
+}
+
+export function claimChallenge(store: ChallengeReplayStore, submission: ChallengeSubmission, now = new Date()): Promise<boolean> {
+  return store.claimOnce(`challenge:${submission.challenge.nonce}`, Math.ceil(MAX_AGE_MS / 1000), now);
 }

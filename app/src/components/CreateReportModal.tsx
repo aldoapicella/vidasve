@@ -74,8 +74,7 @@ export function CreateReportModal({
         riskFlags: form.getAll("riskFlags"),
         sourceType: form.get("sourceType"),
         reporterNamePublic: form.get("reporterNamePublic"),
-        reporterContact: form.get("reporterContact"),
-        publishContact: form.get("publishContact") === "on"
+        reporterContact: form.get("reporterContact")
       });
       onCreated({ code: result.code, publicUrl: result.publicUrl, ownerEditUrl: result.ownerEditUrl });
     } catch (err) {
@@ -234,10 +233,7 @@ export function CreateReportModal({
                 Telefono, WhatsApp o email
                 <input name="reporterContact" maxLength={160} autoComplete="tel" />
               </label>
-              <label className="checkRow">
-                <input name="publishContact" type="checkbox" />
-                Publicar contacto
-              </label>
+              <p className="helperText">Tu contacto no sera publico.</p>
             </details>
           </section>
         )}

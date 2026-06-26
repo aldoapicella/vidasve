@@ -22,7 +22,12 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Deploy Bicep
+        env:
+          BUDGET_CONTACT_EMAILS_JSON: ${{ vars.BUDGET_CONTACT_EMAILS_JSON }}
+          MONTHLY_BUDGET_AMOUNT: ${{ vars.MONTHLY_BUDGET_AMOUNT }}
         run: |
+          budgetContactEmailsJson="${BUDGET_CONTACT_EMAILS_JSON:-[]}"
+          monthlyBudgetAmount="${MONTHLY_BUDGET_AMOUNT:-25}"
           az deployment group create \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --template-file infra/main.bicep \
@@ -33,4 +38,6 @@ jobs:
               piiEncryptionKey="${{ secrets.PII_ENCRYPTION_KEY }}" \
               allowedOrigins="${{ vars.ALLOWED_ORIGINS }}" \
               publicAppUrl="${{ vars.PUBLIC_APP_URL }}" \
-              azureMapsRoleDefinitionId="${{ vars.AZURE_MAPS_ROLE_DEFINITION_ID }}"
+              azureMapsRoleDefinitionId="${{ vars.AZURE_MAPS_ROLE_DEFINITION_ID }}" \
+              budgetContactEmailsJson="$budgetContactEmailsJson" \
+              monthlyBudgetAmount="$monthlyBudgetAmount"

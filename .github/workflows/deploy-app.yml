@@ -29,6 +29,7 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - run: npm ci
+      - run: npm run ci
       - name: Build SPA
         run: npm run build --workspace app
         env:

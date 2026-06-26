@@ -46,6 +46,18 @@ export function ReportDetailDrawer({
     }
   }
 
+  function reportAbuse() {
+    const reason = window.prompt("Motivo del abuso: falso, spam, datos personales, ubicacion peligrosa u otro.");
+    if (!reason?.trim()) return;
+    void submit("abuse_flag", reason, reason);
+  }
+
+  function reportRisk() {
+    const reason = window.prompt("Riesgo observado: gas, fuego, cables, agua, estructura inestable u otro.");
+    if (!reason?.trim()) return;
+    void submit("risk_update", reason, reason);
+  }
+
   return (
     <aside className="detailDrawer" aria-label={`Reporte ${report.code}`}>
       <header>
@@ -71,6 +83,9 @@ export function ReportDetailDrawer({
         {report.lastContactText ? <p>Ultimo contacto: {report.lastContactText}</p> : null}
         <p>Estado: {statusLabel(report.derivedStatus)}</p>
         {report.signsOfLife ? <p className="lifeSignal">Tiene senales de vida reportadas</p> : null}
+        {report.possibleDuplicateCodes?.length ? (
+          <p>Posibles duplicados: {report.possibleDuplicateCodes.join(", ")}</p>
+        ) : null}
       </section>
 
       <p className="safetyNote">
@@ -91,8 +106,14 @@ export function ReportDetailDrawer({
           <button type="button" disabled={busy !== null} onClick={() => void submit("nearby_help", "Estoy cerca o llevando ayuda.")}>
             Estoy cerca
           </button>
+          <button type="button" disabled={busy !== null} onClick={() => void submit("new_signs_of_life", "Hay senales de vida nuevas.")}>
+            Hay senales de vida
+          </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("duplicate_claim", "Puede ser duplicado.")}>
             Posible duplicado
+          </button>
+          <button type="button" disabled={busy !== null} onClick={reportRisk}>
+            Riesgo nuevo
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("resolution_claim", "Creo que fue resuelto.")}>
             Informar posible resuelto
@@ -102,6 +123,9 @@ export function ReportDetailDrawer({
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void shareReport()}>
             {shareCopied ? "Enlace copiado" : "Compartir"}
+          </button>
+          <button className="dangerAction" type="button" disabled={busy !== null} onClick={reportAbuse}>
+            Reportar abuso
           </button>
         </div>
         {ownerToken ? (

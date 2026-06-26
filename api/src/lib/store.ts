@@ -154,13 +154,25 @@ class CosmosReportStore implements ReportStore {
   async increment(bucket: string, windowSeconds: number, now = new Date()): Promise<number> {
     const id = bucket;
     try {
-      const { resource } = await this.rateLimits.item(id, bucket).read<{ id: string; bucket: string; count: number }>();
-      const next = { ...(resource ?? { id, bucket, count: 0 }), count: (resource?.count ?? 0) + 1, ttl: windowSeconds };
-      await this.rateLimits.item(id, bucket).replace(next);
-      return next.count;
-    } catch {
       await this.rateLimits.items.create({ id, bucket, count: 1, ttl: windowSeconds, createdAt: now.toISOString() });
       return 1;
+    } catch (err) {
+      if (!isConflict(err)) throw err;
+      const { resource } = await this.rateLimits.item(id, bucket).patch([
+        { op: "incr", path: "/count", value: 1 },
+        { op: "set", path: "/ttl", value: windowSeconds }
+      ]);
+      return Number((resource as { count?: number } | undefined)?.count ?? 1);
+    }
+  }
+
+  async claimOnce(bucket: string, windowSeconds: number, now = new Date()): Promise<boolean> {
+    try {
+      await this.rateLimits.items.create({ id: bucket, bucket, count: 1, ttl: windowSeconds, createdAt: now.toISOString() });
+      return true;
+    } catch (err) {
+      if (isConflict(err)) return false;
+      throw err;
     }
   }
 
@@ -173,6 +185,12 @@ class CosmosReportStore implements ReportStore {
       ...event
     });
   }
+}
+
+function isConflict(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: number | string; statusCode?: number }).code;
+  return code === 409 || code === "Conflict" || (err as { statusCode?: number }).statusCode === 409;
 }
 
 function pointInBbox(report: Report, bbox: [number, number, number, number]): boolean {
