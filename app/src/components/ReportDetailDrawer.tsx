@@ -88,6 +88,30 @@ export function ReportDetailDrawer({
         ) : null}
       </section>
 
+      {report.persons?.length ? (
+        <section>
+          <h2>Personas reportadas</h2>
+          <div className="detailPeopleList">
+            {report.persons.map((person) => (
+              <article key={person.id} className="detailPerson">
+                <div>
+                  <strong>{person.displayName}</strong>
+                  <span>{person.age ? `${person.age} anos · ` : ""}{personStatusLabel(person.status)}</span>
+                </div>
+                {person.lastKnownPlace ? <p>{person.lastKnownPlace}</p> : null}
+                {person.description ? <p>{person.description}</p> : null}
+                {person.lastContactText ? <p>Ultimo contacto: {person.lastContactText}</p> : null}
+                {person.publicContactName || person.publicContactPhone ? (
+                  <p className="publicContactLine">
+                    Contacto publico: {[person.publicContactName, person.publicContactRelationship, person.publicContactPhone].filter(Boolean).join(" · ")}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <p className="safetyNote">
         No entres a estructuras inestables. Ayuda confirmando ubicacion, avisando a vecinos o llevando el reporte a personas con equipo.
       </p>
@@ -169,4 +193,15 @@ function labelForType(type: PublicReport["type"]): string {
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ");
+}
+
+function personStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    trapped: "Posiblemente atrapada",
+    missing: "No localizada",
+    signals_of_life: "Con senales de vida",
+    found: "Encontrada",
+    needs_verification: "Necesita verificacion"
+  };
+  return labels[status] ?? statusLabel(status);
 }

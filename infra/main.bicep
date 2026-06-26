@@ -21,7 +21,7 @@ param allowedOrigins string
 param publicAppUrl string
 
 @description('Allowed report bboxes as JSON.')
-param allowedBboxesJson string = '[{"name":"Caracas","minLng":-67.20,"minLat":10.35,"maxLng":-66.70,"maxLat":10.65},{"name":"La Guaira","minLng":-67.35,"minLat":10.45,"maxLng":-66.75,"maxLat":10.75}]'
+param allowedBboxesJson string = '[{"name":"Caracas","minLng":-67.24,"minLat":10.34,"maxLng":-66.72,"maxLat":10.62},{"name":"La Guaira","minLng":-67.36,"minLat":10.43,"maxLng":-66.72,"maxLat":10.76},{"name":"Altos Mirandinos","minLng":-67.18,"minLat":10.24,"maxLng":-66.82,"maxLat":10.48},{"name":"Guarenas-Guatire","minLng":-66.78,"minLat":10.34,"maxLng":-66.46,"maxLat":10.57}]'
 
 param defaultCenterJson string = '[10.6031,-66.9334]'
 param defaultZoom string = '11'

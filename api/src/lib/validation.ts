@@ -1,4 +1,5 @@
-import type { CreateReportInput, EventType, GeoPoint, LocationAccuracy, PeopleCount, ReportType } from "./types.js";
+import { randomUUID } from "node:crypto";
+import type { CreateReportInput, EventType, GeoPoint, LocationAccuracy, PeopleCount, PersonStatus, PublicPerson, ReportType } from "./types.js";
 import { sanitizeText } from "./sanitize.js";
 
 const REPORT_TYPES = new Set<ReportType>([
@@ -9,6 +10,7 @@ const REPORT_TYPES = new Set<ReportType>([
 ]);
 const ACCURACY = new Set<LocationAccuracy>(["exact", "approximate", "zone_only"]);
 const PEOPLE = new Set<PeopleCount>(["1", "2-5", "more_than_5", "unknown"]);
+const PERSON_STATUSES = new Set<PersonStatus>(["trapped", "missing", "signals_of_life", "found", "needs_verification"]);
 const PUBLIC_EVENT_TYPES = new Set<EventType>([
   "add_info",
   "nearby_help",
@@ -48,6 +50,7 @@ export function parseCreateReportInput(body: unknown): CreateReportInput {
     area: sanitizeText(value.area, 80),
     type,
     peopleCount,
+    persons: parsePersons(value.persons),
     personDescriptionPublic: sanitizeText(value.personDescriptionPublic, 240),
     lastContactText: sanitizeText(value.lastContactText, 160),
     lastContactAt: sanitizeText(value.lastContactAt, 80),
@@ -64,6 +67,45 @@ export function parseCreateReportInput(body: unknown): CreateReportInput {
     middleName: sanitizeText(value.middleName, 80),
     challenge: value.challenge as CreateReportInput["challenge"]
   };
+}
+
+function parsePersons(value: unknown): PublicPerson[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 12)
+    .map((item): PublicPerson | undefined => {
+      const record = asRecord(item);
+      const displayName = sanitizeText(record.displayName, 120);
+      const description = sanitizeText(record.description, 240);
+      const lastKnownPlace = sanitizeText(record.lastKnownPlace, 160);
+      const status = PERSON_STATUSES.has(record.status as PersonStatus)
+        ? (record.status as PersonStatus)
+        : "needs_verification";
+      if (!displayName && !description && !lastKnownPlace) return undefined;
+      const age = parseAge(record.age);
+      return {
+        id: sanitizeText(record.id, 80) || randomUUID(),
+        displayName: displayName || "Persona sin identificar",
+        ...(age === undefined ? {} : { age }),
+        photoUrl: sanitizeText(record.photoUrl, 500),
+        description,
+        lastContactText: sanitizeText(record.lastContactText, 160),
+        lastKnownPlace,
+        floorOrUnit: sanitizeText(record.floorOrUnit, 80),
+        status,
+        publicContactName: sanitizeText(record.publicContactName, 100),
+        publicContactPhone: sanitizeText(record.publicContactPhone, 80),
+        publicContactRelationship: sanitizeText(record.publicContactRelationship, 80)
+      };
+    })
+    .filter((person): person is PublicPerson => Boolean(person));
+}
+
+function parseAge(value: unknown): number | undefined {
+  if (value === "" || value === null || value === undefined) return undefined;
+  const age = Number(value);
+  if (!Number.isInteger(age) || age < 0 || age > 120) return undefined;
+  return age;
 }
 
 export function validateCreateReport(input: CreateReportInput): string | null {

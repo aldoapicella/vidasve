@@ -35,6 +35,7 @@ export function makeReport(input: CreateReportInput, values: {
     confirmationScore: input.sourceType === "family" || input.sourceType === "witness" ? 1 : 0,
     abuseScore: 0,
     peopleCount: input.peopleCount,
+    persons: input.persons ?? [],
     personDescriptionPublic: input.personDescriptionPublic,
     lastContactText: input.lastContactText,
     lastContactAt: input.lastContactAt,

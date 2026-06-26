@@ -24,6 +24,23 @@ export interface PublicConfig {
   features: { mediaUploads: boolean; geocoding: boolean };
 }
 
+export type PersonStatus = "trapped" | "missing" | "signals_of_life" | "found" | "needs_verification";
+
+export interface PublicPerson {
+  id: string;
+  displayName: string;
+  age?: number;
+  photoUrl?: string;
+  description?: string;
+  lastContactText?: string;
+  lastKnownPlace?: string;
+  floorOrUnit?: string;
+  status: PersonStatus;
+  publicContactName?: string;
+  publicContactPhone?: string;
+  publicContactRelationship?: string;
+}
+
 export interface PublicReport {
   id: string;
   code: string;
@@ -39,6 +56,7 @@ export interface PublicReport {
   priority: "P1" | "P2" | "P3";
   priorityScore: number;
   peopleCount: string;
+  persons?: PublicPerson[];
   personDescriptionPublic?: string;
   lastContactText?: string;
   knownInfoPublic: string;

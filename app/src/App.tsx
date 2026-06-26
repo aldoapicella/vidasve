@@ -6,10 +6,17 @@ import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
 import type { PublicConfig, PublicEvent, PublicReport } from "./types";
 
+const DEFAULT_AFFECTED_ZONES: PublicConfig["allowedBboxes"] = [
+  { name: "Caracas", minLng: -67.24, minLat: 10.34, maxLng: -66.72, maxLat: 10.62 },
+  { name: "La Guaira", minLng: -67.36, minLat: 10.43, maxLng: -66.72, maxLat: 10.76 },
+  { name: "Altos Mirandinos", minLng: -67.18, minLat: 10.24, maxLng: -66.82, maxLat: 10.48 },
+  { name: "Guarenas-Guatire", minLng: -66.78, minLat: 10.34, maxLng: -66.46, maxLat: 10.57 }
+];
+
 const DEFAULT_CONFIG: PublicConfig = {
   defaultCenter: [10.6031, -66.9334],
   defaultZoom: 11,
-  allowedBboxes: [],
+  allowedBboxes: DEFAULT_AFFECTED_ZONES,
   azureMapsClientId: "",
   features: { mediaUploads: false, geocoding: false }
 };
@@ -131,12 +138,13 @@ export function App() {
       new URLSearchParams(location.search).get("ownerToken");
     return match && token ? { code: decodeURIComponent(match[1]).toUpperCase(), token } : undefined;
   }, []);
-  const filteredReports = useMemo(() => applyReportFilter(reports, filter), [reports, filter]);
+  const scopedReports = useMemo(() => reports.filter((report) => reportInAllowedZones(report, config.allowedBboxes)), [reports, config.allowedBboxes]);
+  const filteredReports = useMemo(() => applyReportFilter(scopedReports, filter), [scopedReports, filter]);
   const visibleReports = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return filteredReports;
     return filteredReports.filter((report) =>
-      [report.code, report.addressText, report.landmark, report.area, report.city, report.personDescriptionPublic, report.knownInfoPublic, report.lastContactText]
+      reportSearchValues(report)
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle))
     );
@@ -145,7 +153,7 @@ export function App() {
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
-  const searchResults = useMemo(() => searchPublicContent(searchTerm, reports), [searchTerm, reports]);
+  const searchResults = useMemo(() => searchPublicContent(searchTerm, scopedReports), [searchTerm, scopedReports]);
 
   useEffect(() => {
     getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
@@ -202,9 +210,29 @@ export function App() {
   }
 
   const handleMapClick = useCallback((location: [number, number]) => {
+    if (!pointInAllowedZones(location, config.allowedBboxes)) {
+      showToast("Ese punto esta fuera de las zonas activas.");
+      return;
+    }
     setPickedLocation(location);
     setPickHint(false);
-  }, []);
+  }, [config.allowedBboxes]);
+
+  async function openReportFromSearch(code: string) {
+    const found = scopedReports.find((report) => report.code === code);
+    if (found) {
+      await selectReport(found);
+      return;
+    }
+    try {
+      const data = await getReport(code);
+      setSelected(data.report);
+      setEvents(data.events);
+      history.replaceState(null, "", `/r/${code}`);
+    } catch {
+      setError("No se pudo cargar el detalle.");
+    }
+  }
 
   function showToast(message: string) {
     setToast(message);
@@ -221,7 +249,7 @@ export function App() {
     return (
       <main className="signalShell feedShell" aria-label={APP_NAME}>
         <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
-        {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
+        {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={(code) => { window.location.href = `/r/${code}`; }} /> : null}
         <PublicFeed
           reports={visibleReports}
           mediaUploadsEnabled={config.features.mediaUploads}
@@ -261,10 +289,10 @@ export function App() {
       />
 
       <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
-      {searchTerm.trim() ? <SearchOverlay results={searchResults} /> : null}
+      {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
       <FilterChips
         value={filter}
-        reports={reports}
+        reports={scopedReports}
         onChange={(next) => {
           setFilter(next);
           void refreshReports(undefined, next);
@@ -284,7 +312,7 @@ export function App() {
       {!pickedLocation || selected ? (
         <div className="fabStack">
           {!pickedLocation ? (
-            <button className="primaryFab" type="button" onClick={() => setPickHint(true)}>
+            <button className="primaryFab" type="button" onClick={() => setCreateOpen(true)}>
               Reportar emergencia
             </button>
           ) : null}
@@ -465,22 +493,41 @@ function MobileSearchFilters() {
   );
 }
 
-function SearchOverlay({ results }: { results: ReturnType<typeof searchPublicContent> }) {
+function SearchOverlay({
+  results,
+  onOpenReport
+}: {
+  results: ReturnType<typeof searchPublicContent>;
+  onOpenReport: (code: string) => void | Promise<void>;
+}) {
   return (
     <section className="searchOverlay" aria-label="Resultados de busqueda">
-      <SearchGroup title="Reportes encontrados" items={results.reports} />
-      <SearchGroup title="Ubicaciones" items={results.locations} />
-      <SearchGroup title="Informacion publica" items={results.info} />
+      <SearchGroup title="Personas" items={results.people} onOpenReport={onOpenReport} />
+      <SearchGroup title="Reportes" items={results.reports} onOpenReport={onOpenReport} />
+      <SearchGroup title="Ubicaciones" items={results.locations} onOpenReport={onOpenReport} />
       <a className="viewAllResults" href="/feed">Ver todos los resultados</a>
     </section>
   );
 }
 
-function SearchGroup({ title, items }: { title: string; items: string[] }) {
+function SearchGroup({
+  title,
+  items,
+  onOpenReport
+}: {
+  title: string;
+  items: SearchItem[];
+  onOpenReport: (code: string) => void | Promise<void>;
+}) {
   return (
     <div>
       <h3>{title}</h3>
-      {items.length ? items.map((item) => <button key={item} type="button">{item}</button>) : <p>No hay coincidencias.</p>}
+      {items.length ? items.map((item) => (
+        <button key={item.key} type="button" onClick={() => void onOpenReport(item.code)}>
+          <span>{item.label}</span>
+          {item.detail ? <small>{item.detail}</small> : null}
+        </button>
+      )) : <p>No hay coincidencias.</p>}
     </div>
   );
 }
@@ -520,7 +567,7 @@ function MapStatus({ zoneNames }: { zoneNames: string }) {
     <section className="mapStatus">
       <span></span>
       <div>
-        <strong>Mapa actualizado hace 2 min</strong>
+        <strong>Mapa operativo</strong>
         <p>Interaccion limitada a zonas afectadas: {zoneNames}</p>
       </div>
     </section>
@@ -706,6 +753,7 @@ function FeedEmptyState() {
 }
 
 function FeedPost({ report }: { report: PublicReport }) {
+  const firstPerson = report.persons?.[0];
   return (
     <article className="feedPost">
       <ReportBadge report={report} />
@@ -716,9 +764,16 @@ function FeedPost({ report }: { report: PublicReport }) {
           <span>{report.code}</span>
           <time>{new Date(report.updatedAt).toLocaleString()}</time>
         </header>
+        {firstPerson ? (
+          <p className="personLead">
+            {firstPerson.displayName}
+            {firstPerson.age ? `, ${firstPerson.age} anos` : ""} · {personStatusLabel(firstPerson.status)}
+          </p>
+        ) : null}
         <p>{report.knownInfoPublic}</p>
         <div className="postTags">
           <span>{report.addressText}</span>
+          {report.persons?.length ? <b>{report.persons.length} persona{report.persons.length === 1 ? "" : "s"}</b> : null}
           <b>{report.priority}</b>
           {report.signsOfLife ? <b>Señales de vida</b> : null}
         </div>
@@ -732,10 +787,11 @@ function FeedPost({ report }: { report: PublicReport }) {
 }
 
 function ReportBadge({ report }: { report: PublicReport }) {
+  const firstPerson = report.persons?.[0];
   return (
     <article className="flyerCard reportBadge">
       <strong>{report.priority}</strong>
-      <span>{report.code}</span>
+      <span>{firstPerson?.displayName ?? report.code}</span>
       <small>{statusLabel(report.derivedStatus)}</small>
     </article>
   );
@@ -826,19 +882,73 @@ function applyReportFilter(reports: PublicReport[], filter: string): PublicRepor
   return reports;
 }
 
+interface SearchItem {
+  key: string;
+  code: string;
+  label: string;
+  detail?: string;
+}
+
 function searchPublicContent(term: string, reports: PublicReport[]) {
   const needle = term.trim().toLowerCase();
-  if (!needle) return { reports: [], locations: [], info: [] };
+  if (!needle) return { reports: [], locations: [], people: [] };
   const includes = (value: string | undefined) => value?.toLowerCase().includes(needle);
-  const matches = reports.filter((report) =>
-    [report.code, report.addressText, report.landmark, report.area, report.city, report.personDescriptionPublic, report.knownInfoPublic, report.lastContactText]
-      .some(includes)
+  const matches = reports.filter((report) => reportSearchValues(report).some(includes));
+  const people = matches.flatMap((report) =>
+    (report.persons ?? [])
+      .filter((person) => [
+        person.displayName,
+        person.description,
+        person.lastKnownPlace,
+        person.floorOrUnit,
+        person.lastContactText,
+        person.publicContactName,
+        person.publicContactRelationship
+      ].some(includes))
+      .map((person) => ({
+        key: `${report.code}-${person.id}`,
+        code: report.code,
+        label: person.displayName,
+        detail: `${personStatusLabel(person.status)} · ${report.addressText}`
+      }))
   );
   return {
-    reports: matches.map((report) => `${report.code} · ${labelForType(report.type)} · ${report.priority}`).slice(0, 5),
-    locations: matches.map((report) => report.addressText).filter(Boolean).slice(0, 5),
-    info: matches.map((report) => report.personDescriptionPublic || report.knownInfoPublic).filter(Boolean).slice(0, 5)
+    people: people.slice(0, 5),
+    reports: matches.map((report) => ({
+      key: `report-${report.code}`,
+      code: report.code,
+      label: `${report.code} · ${labelForType(report.type)}`,
+      detail: `${report.priority} · ${statusLabel(report.derivedStatus)}`
+    })).slice(0, 5),
+    locations: matches.map((report) => ({
+      key: `location-${report.code}`,
+      code: report.code,
+      label: report.addressText,
+      detail: report.landmark || report.area || report.city || report.code
+    })).filter((item) => item.label).slice(0, 5)
   };
+}
+
+function reportSearchValues(report: PublicReport): string[] {
+  return [
+    report.code,
+    report.addressText,
+    report.landmark,
+    report.area,
+    report.city,
+    report.personDescriptionPublic,
+    report.knownInfoPublic,
+    report.lastContactText,
+    ...(report.persons ?? []).flatMap((person) => [
+      person.displayName,
+      person.description,
+      person.lastContactText,
+      person.lastKnownPlace,
+      person.floorOrUnit,
+      person.publicContactName,
+      person.publicContactRelationship
+    ])
+  ].filter(Boolean) as string[];
 }
 
 function labelForType(type: PublicReport["type"]): string {
@@ -853,6 +963,26 @@ function labelForType(type: PublicReport["type"]): string {
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ");
+}
+
+function personStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    trapped: "Posiblemente atrapada",
+    missing: "No localizada",
+    signals_of_life: "Con senales de vida",
+    found: "Encontrada",
+    needs_verification: "Necesita verificacion"
+  };
+  return labels[status] ?? statusLabel(status);
+}
+
+function reportInAllowedZones(report: PublicReport, zones: PublicConfig["allowedBboxes"]): boolean {
+  if (!report.location) return true;
+  return pointInAllowedZones(report.location.coordinates, zones);
+}
+
+function pointInAllowedZones([lng, lat]: [number, number], zones: PublicConfig["allowedBboxes"]): boolean {
+  return !zones.length || zones.some((zone) => lng >= zone.minLng && lng <= zone.maxLng && lat >= zone.minLat && lat <= zone.maxLat);
 }
 
 function demoReport(code: string, lng: number, lat: number, priority: "P1" | "P2" | "P3", addressText: string, knownInfoPublic: string): PublicReport {

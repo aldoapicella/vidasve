@@ -488,6 +488,18 @@ textarea {
   padding: 14px;
 }
 
+.selectedPlace {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.selectedPlaceError {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
 .selectedPlace span {
   color: var(--muted);
   font-weight: 800;
@@ -499,6 +511,75 @@ textarea {
   display: block;
   margin: 4px 0 10px;
   font-size: 18px;
+}
+
+.selectedPlace small {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.locationActions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.sectionHeader,
+.personEditorTitle {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.sectionHeader p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.peopleEditor {
+  display: grid;
+  gap: 10px;
+}
+
+.personEditor {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.personEditor details {
+  display: grid;
+  gap: 10px;
+}
+
+.personEditor summary {
+  cursor: pointer;
+  color: var(--primary-strong);
+  font-weight: 800;
+}
+
+.textDanger {
+  min-height: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.textDanger:hover {
+  background: transparent;
+  color: #7f1d1d;
 }
 
 .typeGrid {
@@ -672,6 +753,38 @@ label {
   font-size: 15px;
 }
 
+.detailPeopleList {
+  display: grid;
+  gap: 8px;
+}
+
+.detailPerson {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.detailPerson strong {
+  display: block;
+  font-size: 14px;
+}
+
+.detailPerson span,
+.detailPerson p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.detailPerson .publicContactLine {
+  color: #334155;
+  font-weight: 800;
+}
+
 .priority {
   display: inline-flex;
   align-items: center;
@@ -768,8 +881,19 @@ label {
   .eventGrid,
   .inlineFields,
   .typeGrid,
+  .selectedPlace,
   .placeSheet {
     grid-template-columns: 1fr;
+  }
+
+  .locationActions,
+  .sectionHeader {
+    justify-items: stretch;
+    align-items: stretch;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
   }
 
   .fabStack {
@@ -1531,13 +1655,25 @@ svg {
 .viewAllResults {
   width: 100%;
   justify-content: flex-start;
-  min-height: 34px;
-  padding: 0;
+  min-height: 40px;
+  padding: 4px 0;
   background: transparent;
   color: #111827;
   text-align: left;
   text-decoration: none;
   font-weight: 700;
+}
+
+.searchOverlay button {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+}
+
+.searchOverlay button small {
+  color: var(--sv-muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .mapEmptyState {
@@ -1728,6 +1864,12 @@ svg {
   margin: 12px 0;
   font-size: 15px;
   line-height: 1.45;
+}
+
+.postBody .personLead {
+  margin: 10px 0 0;
+  color: #374151;
+  font-weight: 800;
 }
 
 .feedEmptyState {
@@ -1939,19 +2081,29 @@ svg {
 
   .signalFeedCard,
   .buildingFeedCard {
-    grid-template-columns: 56px 1fr auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
   }
 
   .feedPost {
-    grid-template-columns: 96px 1fr;
+    grid-template-columns: 96px minmax(0, 1fr);
   }
 
   .postBody header {
-    grid-template-columns: 34px 1fr auto;
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 
   .postBody header span {
     display: none;
+  }
+
+  .postBody header strong {
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  .postBody time {
+    grid-column: 2;
+    font-size: 12px;
   }
 
   .postBody p {
@@ -1981,7 +2133,7 @@ svg {
 
   .signalFeedCard,
   .buildingFeedCard {
-    grid-template-columns: 60px 1fr 42px;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
     padding: 14px;
   }
 
@@ -1991,12 +2143,12 @@ svg {
   }
 
   .feedPost {
-    grid-template-columns: 108px 1fr;
+    grid-template-columns: 92px minmax(0, 1fr);
     gap: 10px;
   }
 
   .feedPost .flyerCard {
-    min-height: 154px;
+    min-height: 136px;
   }
 
   .postTags span,

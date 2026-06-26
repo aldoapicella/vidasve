@@ -35,6 +35,7 @@ export type PublicAction =
 export type LocationAccuracy = "exact" | "approximate" | "zone_only";
 export type PeopleCount = "1" | "2-5" | "more_than_5" | "unknown";
 export type Priority = "P1" | "P2" | "P3";
+export type PersonStatus = "trapped" | "missing" | "signals_of_life" | "found" | "needs_verification";
 export type DerivedStatus =
   | "open"
   | "confirmed"
@@ -71,6 +72,21 @@ export interface GeoPoint {
   coordinates: [number, number];
 }
 
+export interface PublicPerson {
+  id: string;
+  displayName: string;
+  age?: number;
+  photoUrl?: string;
+  description?: string;
+  lastContactText?: string;
+  lastKnownPlace?: string;
+  floorOrUnit?: string;
+  status: PersonStatus;
+  publicContactName?: string;
+  publicContactPhone?: string;
+  publicContactRelationship?: string;
+}
+
 export interface Report {
   id: string;
   code: string;
@@ -90,6 +106,7 @@ export interface Report {
   confirmationScore: number;
   abuseScore: number;
   peopleCount: PeopleCount;
+  persons?: PublicPerson[];
   personDescriptionPublic?: string;
   lastContactText?: string;
   lastContactAt?: string;
@@ -145,6 +162,7 @@ export interface CreateReportInput {
   area?: string;
   type: ReportType;
   peopleCount: PeopleCount;
+  persons?: PublicPerson[];
   personDescriptionPublic?: string;
   lastContactText?: string;
   lastContactAt?: string;
