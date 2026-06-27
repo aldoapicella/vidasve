@@ -164,6 +164,25 @@ FUNCTION_APP_NAME=maparescate-api-j5oyin3m4kbek
 PUBLIC_APP_URL=https://ashy-sky-0df7fa50f.7.azurestaticapps.net
 ```
 
+## Dominio custom
+
+Azure App Service Domains no permite registrar `vidasve.app` porque el TLD `.app` no esta soportado por `Microsoft.DomainRegistration` (`TldValidationFailed ... app`). Registra `vidasve.app` en un registrador que soporte `.app` y luego conecta el apex a Static Web Apps:
+
+```bash
+az staticwebapp hostname set \
+  --name maparescate-web-j5oyin3m4kbek \
+  --resource-group rg-maparescate-prod \
+  --hostname vidasve.app \
+  --validation-method dns-txt-token
+
+az staticwebapp hostname show \
+  --name maparescate-web-j5oyin3m4kbek \
+  --resource-group rg-maparescate-prod \
+  --hostname vidasve.app
+```
+
+Configura en DNS los registros TXT/ALIAS que devuelva Azure, y despues actualiza `ALLOWED_ORIGINS` y `PUBLIC_APP_URL` a `https://vidasve.app`.
+
 ## Pruebas y build
 
 ```bash

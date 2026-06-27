@@ -5,6 +5,7 @@ import type { PublicConfig, PublicReport } from "../types";
 
 export function MapView({
   config,
+  configReady,
   reports,
   selectedCode,
   pickedLocation,
@@ -13,6 +14,7 @@ export function MapView({
   onMapClick
 }: {
   config: PublicConfig;
+  configReady: boolean;
   reports: PublicReport[];
   selectedCode?: string;
   pickedLocation?: [number, number];
@@ -27,8 +29,10 @@ export function MapView({
   const pickedMarkerRef = useRef<atlas.HtmlMarker | null>(null);
   const fallbackLoadedRef = useRef(false);
   const [mapFailed, setMapFailed] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
+    if (!configReady) return;
     if (!containerRef.current || mapRef.current || !config.azureMapsClientId) {
       if (!config.azureMapsClientId && !fallbackLoadedRef.current) {
         fallbackLoadedRef.current = true;
@@ -57,6 +61,7 @@ export function MapView({
       sourceRef.current = source;
       mapRef.current = map;
       map.events.add("ready", () => {
+        setMapReady(true);
         if (activeBounds) map.setCamera({ bounds: activeBounds, maxBounds: activeBounds, padding: 48, maxZoom: config.defaultZoom });
         const reportsLayer = new atlas.layer.BubbleLayer(source, "reports", {
           filter: ["!", ["has", "point_count"]],
@@ -97,7 +102,7 @@ export function MapView({
       setMapFailed(true);
       onBoundsChange();
     }
-  }, [config, onBoundsChange, onMapClick, selectedCode]);
+  }, [config, configReady, onBoundsChange, onMapClick, selectedCode]);
 
   useEffect(() => {
     const source = sourceRef.current;
@@ -134,6 +139,10 @@ export function MapView({
     pickedMarkerRef.current = null;
   }, [pickedLocation]);
 
+  if (!configReady) {
+    return <MapLoading />;
+  }
+
   if (mapFailed || !config.azureMapsClientId) {
     return (
       <section className="fallbackMap" aria-label="Lista de reportes">
@@ -154,7 +163,21 @@ export function MapView({
     );
   }
 
-  return <div ref={containerRef} className="mapCanvas" aria-label="Mapa de reportes" />;
+  return (
+    <>
+      <div ref={containerRef} className="mapCanvas" aria-label="Mapa de reportes" />
+      {!mapReady ? <MapLoading /> : null}
+    </>
+  );
+}
+
+function MapLoading() {
+  return (
+    <section className="mapLoading" role="status" aria-live="polite">
+      <span aria-hidden="true"></span>
+      <strong>Cargando mapa</strong>
+    </section>
+  );
 }
 
 function reportFromShape(shape?: atlas.data.Feature<atlas.data.Geometry, PublicReport> | atlas.Shape): PublicReport | undefined {

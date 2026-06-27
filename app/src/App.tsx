@@ -130,6 +130,39 @@ const FILTER_CHIPS = [
   { label: "P1", value: "P1", tone: "purple" }
 ] as const;
 
+const INFO_PAGES = {
+  "/aviso-legal": {
+    title: "Aviso legal",
+    intro: "VidasVE organiza reportes comunitarios para orientar busqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
+    sections: [
+      ["Uso de la informacion", "La informacion publicada puede venir de familiares, testigos o comunidad. Debe tratarse como pista operativa pendiente de verificacion."],
+      ["Sin garantias", "El servicio puede tener errores, demoras o datos incompletos durante una emergencia. Confirma decisiones criticas con autoridades, rescatistas u organismos competentes."],
+      ["Conducta prohibida", "No publiques informacion falsa, datos privados innecesarios, amenazas, doxxing ni contenido que ponga en riesgo a personas afectadas o equipos de rescate."],
+      ["Reportes y cierres", "Un tercero no puede cerrar u ocultar un reporte por si solo. Las señales comunitarias quedan como eventos publicos para revision independiente."]
+    ]
+  },
+  "/privacidad": {
+    title: "Privacidad",
+    intro: "Por defecto VidasVE minimiza datos sensibles y no expone telefonos o contactos privados en fichas publicas.",
+    sections: [
+      ["Datos publicos", "Las fichas pueden mostrar ubicacion aproximada, descripcion publica, estado operativo, publicaciones familiares y eventos comunitarios."],
+      ["Datos privados", "Los contactos directos y enlaces de propietario se tratan como privados. No compartas el token de propietario en redes sociales ni chats publicos."],
+      ["Seguridad", "La API aplica proof-of-work, honeypot y limites por IP, dispositivo, contacto, reporte y zona para reducir abuso automatizado."],
+      ["Retencion", "Los reportes y eventos tienen retencion limitada segun la configuracion de infraestructura. Pide correcciones si detectas informacion falsa o riesgosa."]
+    ]
+  },
+  "/tips-seguridad": {
+    title: "Tips de seguridad",
+    intro: "Usa VidasVE para coordinar informacion, no para entrar en zonas de riesgo sin autorizacion.",
+    sections: [
+      ["Si estas afectado", "Reporta la ubicacion mas aproximada, numero de personas, señales de vida, ultimo contacto y referencias visuales utiles."],
+      ["Si eres familiar", "Publica historias, fotos o flyers solo con informacion necesaria. Evita telefonos personales en texto publico."],
+      ["Si estas cerca", "No ingreses a estructuras dañadas. Crea una pista de ayuda o señales de vida y comparte detalles verificables."],
+      ["Verificacion", "Prioriza reportes con ubicacion clara, multiples señales independientes y datos consistentes. Denuncia abuso sin intentar ocultar reportes legitimos."]
+    ]
+  }
+} as const;
+
 export function App() {
   const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
   const [configReady, setConfigReady] = useState(false);
@@ -150,6 +183,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
   const showFeed = location.pathname === "/feed";
+  const infoPage = INFO_PAGES[location.pathname as keyof typeof INFO_PAGES];
   const personRouteId = location.pathname.match(/^\/persona\/([^/]+)/)?.[1];
   const privateAccess = useMemo(() => {
     const match = location.pathname.match(/^\/(?:r|caso)\/([^/]+)/);
@@ -315,6 +349,31 @@ export function App() {
     history.replaceState(null, "", "/");
   }
 
+  if (infoPage) {
+    return (
+      <main className="signalShell pageShell" aria-label={APP_NAME}>
+        <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
+        {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
+        <InfoPage page={infoPage} />
+        <BottomNav active="map" onReport={() => setCreateOpen(true)} />
+        <AppFooter />
+        {createOpen ? (
+          <CreateReportModal
+            config={config}
+            onClose={() => setCreateOpen(false)}
+            onCreated={(result) => {
+              setCreated(result);
+              setCreateOpen(false);
+              void refreshReports();
+            }}
+          />
+        ) : null}
+        {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
+        {toast ? <Toast message={toast} /> : null}
+      </main>
+    );
+  }
+
   if (showFeed) {
     return (
       <main className="signalShell feedShell" aria-label={APP_NAME}>
@@ -359,6 +418,7 @@ export function App() {
     <main className={selected || personRoute ? "signalShell detailOpen" : "signalShell"} aria-label={APP_NAME}>
       <MapView
         config={config}
+        configReady={configReady}
         reports={mapReports}
         selectedCode={selected?.code}
         pickedLocation={pickedLocation}
@@ -369,18 +429,20 @@ export function App() {
 
       <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={beginReportFlow} />
       {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
-      <FilterChips
-        value={filter}
-        reports={contentReports}
-        onChange={(next) => {
-          setFilter(next);
-          void refreshReports(undefined, next);
-        }}
-      />
+      {configReady ? (
+        <FilterChips
+          value={filter}
+          reports={contentReports}
+          onChange={(next) => {
+            setFilter(next);
+            void refreshReports(undefined, next);
+          }}
+        />
+      ) : null}
       {DEMO_MODE ? <MapControls /> : null}
       {DEMO_MODE ? <DemoPins onOpenCase={() => setSelected(null)} /> : null}
-      <MapStatus zoneNames={zoneNames || "Caracas, La Guaira"} />
-      {!DEMO_MODE && !selected && !pickedLocation ? <MapEmptyState reports={visibleReports} searchTerm={searchTerm} /> : null}
+      {configReady ? <MapStatus zoneNames={zoneNames || "Caracas, La Guaira"} /> : null}
+      {configReady && !DEMO_MODE && !selected && !pickedLocation ? <MapEmptyState reports={visibleReports} searchTerm={searchTerm} /> : null}
 
       {reportsTruncated ? (
         <section className={pickHint && !pickedLocation ? "limitNotice abovePickHint" : "limitNotice"} role="status">
@@ -388,7 +450,7 @@ export function App() {
         </section>
       ) : null}
 
-      {!pickedLocation || selected ? (
+      {configReady && (!pickedLocation || selected) ? (
         <div className="fabStack">
           {!pickedLocation ? (
             <button className="primaryFab" type="button" onClick={beginReportFlow}>
@@ -484,6 +546,27 @@ export function App() {
       <AppFooter />
       {toast ? <Toast message={toast} /> : null}
     </main>
+  );
+}
+
+function InfoPage({ page }: { page: (typeof INFO_PAGES)[keyof typeof INFO_PAGES] }) {
+  return (
+    <article className="infoPage">
+      <a className="backLink" href="/">Volver al mapa</a>
+      <header>
+        <span className="eyebrow">VidasVE Venezuela</span>
+        <h1>{page.title}</h1>
+        <p>{page.intro}</p>
+      </header>
+      <div className="infoGrid">
+        {page.sections.map(([title, body]) => (
+          <section key={title}>
+            <h2>{title}</h2>
+            <p>{body}</p>
+          </section>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -1091,9 +1174,9 @@ function BottomNav({ active, onReport }: { active: "map" | "feed"; onReport: () 
 function AppFooter() {
   return (
     <footer className="signalFooter">
-      <a href="#legal">Aviso legal</a>
-      <a href="#privacidad">Privacidad</a>
-      <span>Tips de seguridad</span>
+      <a href="/aviso-legal">Aviso legal</a>
+      <a href="/privacidad">Privacidad</a>
+      <a href="/tips-seguridad">Tips de seguridad</a>
       <span>Canales oficiales</span>
       <strong>{APP_NAME} Venezuela</strong>
     </footer>
