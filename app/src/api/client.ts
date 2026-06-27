@@ -1,4 +1,4 @@
-import type { EventType, PlaceSuggestion, PublicConfig, PublicEvent, PublicPost, PublicReport, PublicSearchResponse } from "../types";
+import type { EventType, PlaceSuggestion, PublicConfig, PublicEvent, PublicPerson, PublicPost, PublicReport, PublicSearchResponse } from "../types";
 import type { Challenge, PowAction } from "../lib/pow";
 import { solvePow } from "../lib/pow";
 import { getDeviceId } from "../lib/deviceId";
@@ -158,28 +158,102 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 function normalizeReport(report: PublicReport): PublicReport {
-  const counters = report.counters ?? {};
+  const source = (report ?? {}) as Partial<PublicReport>;
+  const counters = (source.counters ?? {}) as Partial<PublicReport["counters"]>;
   return {
-    ...report,
-    persons: array(report.persons),
-    riskFlags: array(report.riskFlags),
-    possibleDuplicateCodes: array(report.possibleDuplicateCodes),
+    ...source,
+    id: text(source.id),
+    code: text(source.code).toUpperCase(),
+    location: normalizeLocation(source.location),
+    locationAccuracy: oneOf(source.locationAccuracy, ["exact", "approximate", "zone_only"], "approximate"),
+    addressText: text(source.addressText) || text(source.code) || "Ubicación sin nombre",
+    type: oneOf(source.type, ["trapped_person", "missing_last_seen", "voices_or_hits", "collapsed_building_unknown"], "collapsed_building_unknown"),
+    derivedStatus: text(source.derivedStatus) || "open",
+    priority: oneOf(source.priority, ["P1", "P2", "P3"], "P3"),
+    priorityScore: number(source.priorityScore),
+    peopleCount: text(source.peopleCount) || "unknown",
+    persons: array(source.persons).map(normalizePerson),
+    knownInfoPublic: text(source.knownInfoPublic),
+    signsOfLife: source.signsOfLife === true,
+    riskFlags: array(source.riskFlags).map(text).filter(Boolean),
+    publishContact: source.publishContact === true,
+    possibleDuplicateCodes: array(source.possibleDuplicateCodes).map(text).filter(Boolean),
+    updatedAt: text(source.updatedAt) || new Date(0).toISOString(),
     counters: {
-      updates: counters.updates ?? 0,
-      nearbyHelp: counters.nearbyHelp ?? 0,
-      resolutionClaims: counters.resolutionClaims ?? 0,
-      reopenClaims: counters.reopenClaims ?? 0,
-      abuseFlags: counters.abuseFlags ?? 0
+      updates: number(counters.updates),
+      nearbyHelp: number(counters.nearbyHelp),
+      resolutionClaims: number(counters.resolutionClaims),
+      reopenClaims: number(counters.reopenClaims),
+      abuseFlags: number(counters.abuseFlags)
     }
-  };
+  } as PublicReport;
 }
 
 function normalizeEvent(event: PublicEvent): PublicEvent {
-  return { ...event, tags: array(event.tags) };
+  const source = (event ?? {}) as Partial<PublicEvent>;
+  return {
+    ...source,
+    id: text(source.id),
+    reportId: text(source.reportId),
+    reportCode: text(source.reportCode).toUpperCase(),
+    type: text(source.type) as PublicEvent["type"],
+    message: text(source.message),
+    tags: array(source.tags).map(text).filter(Boolean),
+    public: source.public !== false,
+    abuseScore: number(source.abuseScore),
+    createdAt: text(source.createdAt) || new Date(0).toISOString()
+  } as PublicEvent;
 }
 
 function normalizePost(post: PublicPost): PublicPost {
-  return { ...post, tags: array(post.tags) };
+  const source = (post ?? {}) as Partial<PublicPost>;
+  const report = (source.report ?? {}) as Partial<PublicPost["report"]>;
+  return {
+    ...source,
+    id: text(source.id),
+    reportCode: text(source.reportCode).toUpperCase(),
+    reportId: text(source.reportId),
+    text: text(source.text),
+    type: oneOf(source.type, ["story", "photo", "flyer", "screenshot", "pdf", "update"], "story"),
+    tags: array(source.tags).map(text).filter(Boolean),
+    createdAt: text(source.createdAt) || new Date(0).toISOString(),
+    report: {
+      code: text(report.code || source.reportCode).toUpperCase(),
+      addressText: text(report.addressText) || "Ubicación sin nombre",
+      priority: oneOf(report.priority, ["P1", "P2", "P3"], "P3"),
+      derivedStatus: text(report.derivedStatus) || "open"
+    }
+  } as PublicPost;
+}
+
+function normalizePerson(person: PublicPerson, index: number): PublicPerson {
+  const source = (person ?? {}) as Partial<PublicPerson>;
+  return {
+    ...source,
+    id: text(source.id) || `person-${index + 1}`,
+    displayName: text(source.displayName) || "Persona sin identificar",
+    status: oneOf(source.status, ["trapped", "missing", "signals_of_life", "found", "needs_verification"], "needs_verification")
+  };
+}
+
+function normalizeLocation(location: PublicReport["location"]): PublicReport["location"] {
+  const coordinates = location?.coordinates;
+  if (!Array.isArray(coordinates)) return undefined;
+  const lng = Number(coordinates[0]);
+  const lat = Number(coordinates[1]);
+  return Number.isFinite(lng) && Number.isFinite(lat) ? { type: "Point", coordinates: [lng, lat] } : undefined;
+}
+
+function oneOf<const T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? value as T : fallback;
+}
+
+function number(value: unknown): number {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function text(value: unknown): string {
+  return String(value ?? "").trim();
 }
 
 function array<T>(value: T[] | undefined): T[] {
