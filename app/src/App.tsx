@@ -700,7 +700,7 @@ function SignalHeader({
     <header className="signalHeader">
       <a className="signalBrand" href="/" aria-label={`${APP_NAME} inicio`}>
         <span className="heartMark" aria-hidden="true"><HeartIcon /></span>
-        <span>Vida<span>VE</span></span>
+        <span>{APP_NAME.slice(0, -2)}<span>{APP_NAME.slice(-2)}</span></span>
       </a>
       <label className="signalSearch">
         <SearchIcon />
