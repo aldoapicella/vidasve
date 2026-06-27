@@ -22,7 +22,7 @@ const DEFAULT_CONFIG: PublicConfig = {
   captcha: { provider: "text" }
 };
 
-const APP_NAME = "VidaVE";
+const APP_NAME = "VidasVE";
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true" || new URLSearchParams(location.search).get("demo") === "1";
 
 const DEMO_CASE = {
@@ -134,7 +134,7 @@ const FILTER_CHIPS = [
 const INFO_PAGES = {
   "/aviso-legal": {
     title: "Aviso legal",
-    intro: "VidaVE organiza reportes comunitarios para orientar búsqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
+    intro: "VidasVE organiza reportes comunitarios para orientar búsqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
     sections: [
       ["Uso de la información", "La información publicada puede venir de familiares, testigos o comunidad. Debe tratarse como pista operativa pendiente de verificación."],
       ["Sin garantías", "El servicio puede tener errores, demoras o datos incompletos durante una emergencia. Confirma decisiones críticas con autoridades, rescatistas u organismos competentes."],
@@ -144,7 +144,7 @@ const INFO_PAGES = {
   },
   "/privacidad": {
     title: "Privacidad",
-    intro: "Por defecto VidaVE minimiza datos sensibles y no expone teléfonos o contactos privados en fichas públicas.",
+    intro: "Por defecto VidasVE minimiza datos sensibles y no expone teléfonos o contactos privados en fichas públicas.",
     sections: [
       ["Datos públicos", "Las fichas pueden mostrar ubicación aproximada, descripción pública, estado operativo, publicaciones familiares y eventos comunitarios."],
       ["Datos privados", "Los contactos directos y enlaces de propietario se tratan como privados. No compartas el token de propietario en redes sociales ni chats públicos."],
@@ -154,7 +154,7 @@ const INFO_PAGES = {
   },
   "/tips-seguridad": {
     title: "Tips de seguridad",
-    intro: "Usa VidaVE para coordinar información, no para entrar en zonas de riesgo sin autorización.",
+    intro: "Usa VidasVE para coordinar información, no para entrar en zonas de riesgo sin autorización.",
     sections: [
       ["Si estás afectado", "Reporta la ubicación más aproximada, número de personas, señales de vida, último contacto y referencias visuales útiles."],
       ["Si eres familiar", "Publica historias, fotos o flyers solo con información necesaria. Evita teléfonos personales en texto público."],
@@ -601,7 +601,7 @@ function InfoPage({ page }: { page: (typeof INFO_PAGES)[keyof typeof INFO_PAGES]
     <article className="infoPage">
       <a className="backLink" href="/">Volver al mapa</a>
       <header>
-        <span className="eyebrow">VidaVE Venezuela</span>
+        <span className="eyebrow">VidasVE Venezuela</span>
         <h1>{page.title}</h1>
         <p>{page.intro}</p>
       </header>
@@ -1261,7 +1261,6 @@ function AppFooter() {
       <a href="/tips-seguridad">Tips de seguridad</a>
       <span>Canales oficiales</span>
       <span className="footerChannels" aria-label="Canales sociales">WA TG IG X</span>
-      <strong>12.842 voluntarios conectados</strong>
     </footer>
   );
 }

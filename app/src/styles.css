@@ -1498,7 +1498,7 @@ label,
   }
 }
 
-/* VidaVE visual shell */
+/* VidasVE visual shell */
 :root {
   --sv-red: #dc2626;
   --sv-red-dark: #b91c1c;
@@ -2219,7 +2219,7 @@ svg {
   z-index: 26;
   min-height: 54px;
   display: grid;
-  grid-template-columns: max-content max-content max-content minmax(120px, 1fr) max-content auto;
+  grid-template-columns: max-content max-content max-content minmax(120px, 1fr) max-content;
   align-items: center;
   gap: 18px;
   padding: 0 32px;
@@ -2235,12 +2235,6 @@ svg {
   align-items: center;
   color: var(--sv-muted);
   text-decoration: none;
-}
-
-.signalFooter strong {
-  justify-self: end;
-  color: #4b5563;
-  white-space: nowrap;
 }
 
 .footerChannels {

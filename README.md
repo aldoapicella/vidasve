@@ -1,4 +1,4 @@
-# VidaVE
+# VidasVE
 
 MVP P0: SPA pública con mapa primero, API en Azure Functions, Cosmos DB for NoSQL, Azure Maps sin subscription key en frontend, y despliegue por GitHub Actions con Azure OIDC.
 
