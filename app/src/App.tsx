@@ -477,6 +477,7 @@ export function App() {
         reports={mapReports}
         selectedCode={selected?.code}
         pickedLocation={pickedLocation}
+        isPicking={pickHint && !pickedLocation && !selected}
         onBoundsChange={refreshReports}
         onReportSelect={selectReport}
         onMapClick={handleMapClick}

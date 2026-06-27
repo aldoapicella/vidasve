@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import * as atlas from "azure-maps-control";
 import { getMapToken } from "../api/client";
 import type { PublicConfig, PublicReport } from "../types";
@@ -9,6 +9,7 @@ export function MapView({
   reports,
   selectedCode,
   pickedLocation,
+  isPicking,
   onBoundsChange,
   onReportSelect,
   onMapClick
@@ -18,6 +19,7 @@ export function MapView({
   reports: PublicReport[];
   selectedCode?: string;
   pickedLocation?: [number, number];
+  isPicking?: boolean;
   onBoundsChange: (bbox?: [number, number, number, number]) => void;
   onReportSelect: (report: PublicReport) => void;
   onMapClick: (location: [number, number]) => void;
@@ -174,6 +176,15 @@ export function MapView({
     pickedMarkerRef.current = null;
   }, [pickedLocation]);
 
+  function handlePickClick(event: MouseEvent<HTMLButtonElement>) {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    if (!map || !container) return;
+    const rect = container.getBoundingClientRect();
+    const position = asLngLat(map.pixelsToPositions([[event.clientX - rect.left, event.clientY - rect.top]])[0]);
+    if (position) onMapClick(position);
+  }
+
   if (!configReady) {
     return <MapLoading />;
   }
@@ -201,6 +212,14 @@ export function MapView({
   return (
     <>
       <div ref={containerRef} className="mapCanvas" aria-label="Mapa de reportes" />
+      {isPicking && mapReady ? (
+        <button
+          className="mapPickCatcher"
+          type="button"
+          aria-label="Seleccionar ubicación en el mapa"
+          onClick={handlePickClick}
+        />
+      ) : null}
       {!mapReady ? <MapLoading /> : null}
     </>
   );
