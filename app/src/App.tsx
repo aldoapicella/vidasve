@@ -131,7 +131,71 @@ const FILTER_CHIPS = [
   { label: "Edificios", value: "buildings", tone: "purple" }
 ] as const;
 
-const INFO_PAGES = {
+type HelpContact = { name: string; phones: string[]; note: string; source: string };
+type HelpContactGroup = { title: string; items: HelpContact[] };
+type InfoPageData = {
+  title: string;
+  intro: string;
+  sections: Array<[string, string]>;
+  contactGroups?: HelpContactGroup[];
+};
+
+const HELP_CONTACT_GROUPS: HelpContactGroup[] = [
+  {
+    title: "Autoridades y primera respuesta",
+    items: [
+      { name: "VEN 9-1-1", phones: ["911"], note: "Emergencias integradas de seguridad, salud, riesgo y ambulancias.", source: "https://ven911.gob.ve/" },
+      { name: "Protección Civil Nacional", phones: ["0800-724-8451"], note: "Sede nacional / 0800-PCIVIL1.", source: "https://www.pcivil.gob.ve/" },
+      { name: "Protección Civil La Guaira", phones: ["0424-207-5335"], note: "Dirección estadal para desastres y riesgo.", source: "https://www.pcivil.gob.ve/la-guaira/" },
+      { name: "Bomberos de Caracas", phones: ["0212-545-4545", "0212-575-3332", "0212-575-1823"], note: "Incendios, rescate y subestaciones del Distrito Capital.", source: "https://2001online.com/servicios/conozca-los-numeros-de-emergencia-para-comunicarse-en-caso-de-una-eventualidad-en-la-gran-caracas-20261511420" },
+      { name: "Bomberos La Guaira", phones: ["0212-332-2165"], note: "Incendios y rescate en La Guaira.", source: "https://laverdaddevargas.com/conoce-los-numeros-de-emergencia-en-la-guaira/" },
+      { name: "Seguridad La Guaira", phones: ["0412-999-4426"], note: "WhatsApp local para seguridad y denuncias.", source: "https://laverdaddevargas.com/conoce-los-numeros-de-emergencia-en-la-guaira/" }
+    ]
+  },
+  {
+    title: "Hospitales y atención médica",
+    items: [
+      { name: "Hospital Universitario de Caracas", phones: ["0212-606-7209", "0212-606-7821", "0212-606-7458"], note: "Emergencia adultos y pediátrica HUC/UCV.", source: "https://sanasana.ucv.ve/sanasana.php?module=numeros" },
+      { name: "Hospital Dr. Miguel Pérez Carreño", phones: ["0212-407-8001", "0212-407-8002", "0212-407-8006"], note: "Centro IVSS en Distrito Capital.", source: "https://www.ivss.gov.ve/contenido/Localizacion-Centros-de-Salud-IVSS%3A-Distrito-Capital" },
+      { name: "Hospital Dr. Domingo Luciani", phones: ["0212-205-6500", "0212-205-6501"], note: "Centro IVSS El Llanito, Miranda.", source: "https://www.ivss.gov.ve/contenido/Localizacion-Centros-de-Salud-IVSS%3AEstado-Miranda" },
+      { name: "Hospital José María Vargas, La Guaira", phones: ["0212-331-6555", "0212-332-7394", "0212-332-9667"], note: "Hospital IVSS del litoral central.", source: "https://www.ivss.gov.ve/contenido/Localizacion-Centros-de-Salud-IVSS%3A-Vargas" },
+      { name: "Bomberos UCV", phones: ["0212-605-2222", "0212-605-4930", "0212-605-4934"], note: "Apoyo universitario y respuesta en Ciudad Universitaria.", source: "https://sanasana.ucv.ve/sanasana.php?module=numeros" },
+      { name: "CIATO / tóxicos UCV", phones: ["0212-605-2686", "0212-605-2660", "0800-869-4267"], note: "Información toxicológica.", source: "https://sanasana.ucv.ve/sanasana.php?module=numeros" }
+    ]
+  },
+  {
+    title: "ONGs y apoyo humanitario",
+    items: [
+      { name: "Cáritas Venezuela", phones: ["0212-443-3153"], note: "Asistencia humanitaria y coordinación en Montalbán.", source: "https://caritasvenezuela.org/contacto/" },
+      { name: "CICR Venezuela", phones: ["0424-172-1364", "0412-636-5015"], note: "Centro de Contacto Comunitario y restablecimiento de contacto familiar.", source: "https://www.icrc.org/es/donde-trabajamos/venezuela" },
+      { name: "UNICEF / Línea de Contacto ONU", phones: ["0800-242-6200", "0424-770-0048"], note: "Comentarios, reclamos, sugerencias y reporte de irregularidades.", source: "https://www.unicef.org/venezuela/" },
+      { name: "Cruz Roja Venezolana / socorristas", phones: ["0212-571-4713", "0212-571-4380"], note: "Socorristas y sede Caracas.", source: "https://cruzroja.ve/" },
+      { name: "Fe y Alegría Venezuela", phones: ["0212-564-7423", "0212-563-1776", "0212-564-5013", "0212-563-2048"], note: "Red educativa y apoyo comunitario.", source: "https://www.feyalegria.org/venezuela/contactanos/" },
+      { name: "MSF España", phones: ["+34 933-046-100"], note: "Contacto internacional de Médicos Sin Fronteras.", source: "https://www.msf.es/territorio/venezuela" }
+    ]
+  }
+];
+
+const INFO_PAGES: Record<string, InfoPageData> = {
+  "/como-funciona": {
+    title: "Cómo funciona",
+    intro: "VidasVE abre directamente el mapa y organiza reportes comunitarios sin exigir login para pedir ayuda.",
+    sections: [
+      ["1. Reporta el punto", "Toca Reportar, marca una ubicación como en un mapa normal o envía el reporte sin punto exacto cuando no tengas coordenadas confiables."],
+      ["2. El mapa agrupa señales", "Los reportes aparecen como puntos numerados y clusters por zona. Al tocar un cluster el mapa se acerca; al tocar un punto se abre la ficha pública."],
+      ["3. La comunidad aporta pistas", "Cualquier persona puede agregar información pública, señales de vida, duplicados o una solicitud de revisión. Eso no cierra ni oculta reportes."],
+      ["4. Cierre protegido", "Solo el enlace privado del propietario puede resolver de inmediato. Terceros solo crean señales independientes para que el caso sea revisado."]
+    ]
+  },
+  "/centro-ayuda": {
+    title: "Centro de ayuda",
+    intro: "Contactos públicos para emergencias, hospitales y organizaciones humanitarias en las zonas activas. Marca 911 primero si hay riesgo inmediato.",
+    sections: [
+      ["Emergencia inmediata", "Usa estos teléfonos para activar respuesta oficial. VidasVE no reemplaza llamadas a autoridades, ambulancias, bomberos ni protección civil."],
+      ["Datos sujetos a cambio", "Los números vienen de fuentes públicas enlazadas. Si una línea no responde, intenta VEN 9-1-1, Protección Civil o el hospital más cercano."]
+    ],
+    contactGroups: HELP_CONTACT_GROUPS
+  },
   "/aviso-legal": {
     title: "Aviso legal",
     intro: "VidasVE organiza reportes comunitarios para orientar búsqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
@@ -186,7 +250,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
   const showFeed = location.pathname === "/feed";
-  const infoPage = INFO_PAGES[location.pathname as keyof typeof INFO_PAGES];
+  const infoPage = INFO_PAGES[location.pathname];
   const personRouteId = location.pathname.match(/^\/persona\/([^/]+)/)?.[1];
   const privateAccess = useMemo(() => {
     const match = location.pathname.match(/^\/(?:r|caso)\/([^/]+)/);
@@ -596,7 +660,7 @@ export function App() {
   );
 }
 
-function InfoPage({ page }: { page: (typeof INFO_PAGES)[keyof typeof INFO_PAGES] }) {
+function InfoPage({ page }: { page: InfoPageData }) {
   return (
     <article className="infoPage">
       <a className="backLink" href="/">Volver al mapa</a>
@@ -613,7 +677,34 @@ function InfoPage({ page }: { page: (typeof INFO_PAGES)[keyof typeof INFO_PAGES]
           </section>
         ))}
       </div>
+      {page.contactGroups ? <HelpContacts groups={page.contactGroups} /> : null}
     </article>
+  );
+}
+
+function HelpContacts({ groups }: { groups: HelpContactGroup[] }) {
+  return (
+    <div className="helpContactGrid">
+      {groups.map((group) => (
+        <section key={group.title} className="helpContactGroup">
+          <h2>{group.title}</h2>
+          <ul>
+            {group.items.map((item) => (
+              <li key={item.name}>
+                <div>
+                  <strong>{item.name}</strong>
+                  <p>{item.note}</p>
+                </div>
+                <div className="helpPhones">
+                  {item.phones.map((phone) => <a key={phone} href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>)}
+                </div>
+                <a className="sourceLink" href={item.source} target="_blank" rel="noreferrer">Fuente</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -712,12 +803,8 @@ function SignalHeader({
         />
       </label>
       <nav className="headerLinks" aria-label="Accesos">
-        <a href="/tips-seguridad">Cómo funciona</a>
-        <a href="/aviso-legal">Centro de ayuda</a>
-        <button className="bellButton" type="button" aria-label="Alertas comunitarias">
-          <BellIcon />
-          <span>3</span>
-        </button>
+        <a href="/como-funciona">Cómo funciona</a>
+        <a href="/centro-ayuda">Centro de ayuda</a>
         <a href="/feed">Feed público</a>
         <button className="reportButton" type="button" onClick={onReport}>Reportar <span aria-hidden="true">+</span></button>
       </nav>
@@ -1256,6 +1343,8 @@ function BottomNav({ active, onReport }: { active: "map" | "feed"; onReport: () 
 function AppFooter() {
   return (
     <footer className="signalFooter">
+      <a href="/como-funciona">Cómo funciona</a>
+      <a href="/centro-ayuda">Centro de ayuda</a>
       <a href="/aviso-legal">Aviso legal</a>
       <a href="/privacidad">Privacidad</a>
       <a href="/tips-seguridad">Tips de seguridad</a>
@@ -1521,10 +1610,6 @@ function HeartIcon() {
 
 function SearchIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" /></svg>;
-}
-
-function BellIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>;
 }
 
 function BuildingIcon() {

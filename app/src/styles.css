@@ -1643,32 +1643,6 @@ svg {
   white-space: nowrap;
 }
 
-.bellButton {
-  position: relative;
-  width: 44px;
-  padding: 0;
-  background: transparent;
-  color: #111827;
-}
-
-.bellButton:hover {
-  background: #f3f4f6;
-}
-
-.bellButton span {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--sv-red);
-  color: #fff;
-  font-size: 11px;
-}
-
 .reportButton {
   min-width: 118px;
   border-radius: 8px;
@@ -2218,8 +2192,7 @@ svg {
   bottom: 0;
   z-index: 26;
   min-height: 54px;
-  display: grid;
-  grid-template-columns: max-content max-content max-content minmax(120px, 1fr) max-content;
+  display: flex;
   align-items: center;
   gap: 18px;
   padding: 0 32px;
@@ -2237,8 +2210,11 @@ svg {
   text-decoration: none;
 }
 
+.signalFooter span:first-of-type {
+  margin-left: auto;
+}
+
 .footerChannels {
-  justify-self: center;
   letter-spacing: 0;
   word-spacing: 10px;
   font-weight: 900;
@@ -2654,9 +2630,30 @@ svg {
   overflow: auto;
 }
 
+.signalShell.pageShell {
+  position: relative;
+  inset: auto;
+  min-height: 100dvh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.pageShell .signalHeader {
+  position: sticky;
+  top: 0;
+  flex: 0 0 auto;
+}
+
+.pageShell .signalFooter {
+  position: static;
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+
 .infoPage {
   width: min(920px, calc(100% - 40px));
-  margin: 96px auto 104px;
+  margin: 30px auto 42px;
   padding: 28px;
   border: 1px solid var(--sv-border);
   border-radius: 12px;
@@ -2704,6 +2701,66 @@ svg {
 }
 
 .backLink {
+  color: var(--sv-purple);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.helpContactGrid {
+  display: grid;
+  gap: 22px;
+  margin-top: 28px;
+}
+
+.helpContactGroup h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+.helpContactGroup ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.helpContactGroup li {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sv-border);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.helpContactGroup p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.helpPhones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.helpPhones a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sourceLink {
   color: var(--sv-purple);
   font-weight: 800;
   text-decoration: none;
@@ -2844,6 +2901,11 @@ svg {
     color: var(--sv-purple);
   }
 
+  .pageShell .bottomNav {
+    position: static;
+    flex: 0 0 auto;
+  }
+
   .feedPage {
     margin: 132px 0 96px;
     padding: 0 18px;
@@ -2937,8 +2999,14 @@ svg {
     padding: 20px;
   }
 
+  .pageShell .signalHeader {
+    position: sticky;
+    top: 0;
+  }
+
   .pageShell .infoPage {
-    margin-top: 132px;
+    margin-top: 18px;
+    margin-bottom: 18px;
   }
 
   .infoPage h1 {
@@ -2946,6 +3014,10 @@ svg {
   }
 
   .infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .helpContactGroup ul {
     grid-template-columns: 1fr;
   }
 }
