@@ -22,7 +22,7 @@ const DEFAULT_CONFIG: PublicConfig = {
 };
 
 const APP_NAME = "VidasVE";
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true" || new URLSearchParams(location.search).get("demo") === "1";
 
 const DEMO_CASE = {
   code: "VE-ATLANTICO",
@@ -91,6 +91,23 @@ const DEMO_REPORTS: PublicReport[] = [
   demoReport("DEMO-05", -67.14, 10.53, "P3", "La Guaira", "Informacion incompleta")
 ];
 
+const DEMO_FEED_POSTS: PublicPost[] = DEMO_POSTS.map((post, index) => ({
+  id: `demo-post-${index}`,
+  reportCode: DEMO_REPORTS[index % DEMO_REPORTS.length].code,
+  reportId: DEMO_REPORTS[index % DEMO_REPORTS.length].id,
+  personId: DEMO_REPORTS[index % DEMO_REPORTS.length].persons?.[0]?.id,
+  text: post.text,
+  type: "flyer",
+  tags: [post.role.toLowerCase()],
+  createdAt: new Date(Date.now() - index * 60 * 60 * 1000).toISOString(),
+  report: {
+    code: DEMO_REPORTS[index % DEMO_REPORTS.length].code,
+    addressText: post.place,
+    priority: DEMO_REPORTS[index % DEMO_REPORTS.length].priority,
+    derivedStatus: DEMO_REPORTS[index % DEMO_REPORTS.length].derivedStatus
+  }
+}));
+
 const DEMO_PINS = [
   ["red", "18", 24, 38],
   ["red", "14", 24, 62],
@@ -142,8 +159,10 @@ export function App() {
     return match && token ? { code: decodeURIComponent(match[1]).toUpperCase(), token } : undefined;
   }, []);
   const scopedReports = useMemo(() => reports.filter((report) => reportInAllowedZones(report, config.allowedBboxes)), [reports, config.allowedBboxes]);
-  const personRoute = useMemo(() => personRouteId ? findPerson(scopedReports, decodeURIComponent(personRouteId)) : undefined, [personRouteId, scopedReports]);
-  const filteredReports = useMemo(() => applyReportFilter(scopedReports, filter), [scopedReports, filter]);
+  const contentReports = DEMO_MODE ? DEMO_REPORTS : scopedReports;
+  const contentPosts = DEMO_MODE ? DEMO_FEED_POSTS : feedPosts;
+  const personRoute = useMemo(() => personRouteId ? findPerson(contentReports, decodeURIComponent(personRouteId)) : undefined, [personRouteId, contentReports]);
+  const filteredReports = useMemo(() => applyReportFilter(contentReports, filter), [contentReports, filter]);
   const visibleReports = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return filteredReports;
@@ -153,11 +172,11 @@ export function App() {
         .some((value) => String(value).toLowerCase().includes(needle))
     );
   }, [filteredReports, searchTerm]);
-  const mapReports = DEMO_MODE && !visibleReports.length && !searchTerm.trim() ? DEMO_REPORTS : visibleReports;
+  const mapReports = DEMO_MODE && !searchTerm.trim() ? DEMO_REPORTS : visibleReports;
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
-  const searchResults = useMemo(() => searchPublicContent(searchTerm, scopedReports, feedPosts), [feedPosts, searchTerm, scopedReports]);
+  const searchResults = useMemo(() => searchPublicContent(searchTerm, contentReports, contentPosts), [contentPosts, contentReports, searchTerm]);
 
   useEffect(() => {
     let active = true;
@@ -300,14 +319,14 @@ export function App() {
     return (
       <main className="signalShell feedShell" aria-label={APP_NAME}>
         <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={() => setCreateOpen(true)} />
+        <MobileSearchFilters />
         {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={(code) => { window.location.href = `/caso/${code}`; }} /> : null}
         <PublicFeed
           reports={visibleReports}
-          posts={feedPosts}
+          posts={contentPosts}
           configReady={configReady}
           mediaUploadsEnabled={config.features.mediaUploads}
           onUpload={() => setUploadOpen(true)}
-          onReport={() => setCreateOpen(true)}
         />
         <BottomNav active="feed" onReport={() => setCreateOpen(true)} />
         {createOpen ? (
@@ -325,7 +344,7 @@ export function App() {
         {uploadOpen ? (
           <UploadPublicationModal
             enabled={config.features.mediaUploads}
-            reports={visibleReports}
+            reports={contentReports}
             onClose={() => setUploadOpen(false)}
             onSubmit={publishPost}
           />
@@ -352,7 +371,7 @@ export function App() {
       {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
       <FilterChips
         value={filter}
-        reports={scopedReports}
+        reports={contentReports}
         onChange={(next) => {
           setFilter(next);
           void refreshReports(undefined, next);
@@ -431,7 +450,7 @@ export function App() {
       {uploadOpen ? (
         <UploadPublicationModal
           enabled={config.features.mediaUploads}
-          reports={visibleReports}
+          reports={contentReports}
           onClose={() => setUploadOpen(false)}
           onSubmit={publishPost}
         />
@@ -809,15 +828,13 @@ function PublicFeed({
   posts,
   configReady,
   mediaUploadsEnabled,
-  onUpload,
-  onReport
+  onUpload
 }: {
   reports: PublicReport[];
   posts: PublicPost[];
   configReady: boolean;
   mediaUploadsEnabled: boolean;
   onUpload: () => void;
-  onReport: () => void;
 }) {
   const signalCount = reports.filter((report) => report.signsOfLife).length;
   const urgentCount = reports.filter((report) => report.priority === "P1").length;
@@ -835,9 +852,10 @@ function PublicFeed({
         </select>
       </div>
       <div className="feedComposer">
-        <button type="button" onClick={onUpload}>Publicar historia/flyer</button>
+        <button type="button" onClick={onUpload}>Cargar historia</button>
+        <button type="button" onClick={onUpload}>Subir foto</button>
+        <button type="button" onClick={onUpload}>Publicar actualizacion</button>
         {configReady && !mediaUploadsEnabled ? <span className="uploadDisabledNote">Archivos desactivados; texto disponible</span> : null}
-        <button type="button" onClick={onReport}>Reportar emergencia</button>
       </div>
       <article className="signalFeedCard">
         <span className="purpleCircle"><BookIcon /></span>
@@ -880,9 +898,11 @@ function FeedPost({ post }: { post: PublicPost }) {
       <div className="postBody">
         <header>
           <Avatar initials={post.report.code.slice(-2)} color="#f0c7b8" />
-          <strong>{postLabel(post.type)}</strong>
+          <div className="postMeta">
+            <strong>{postLabel(post.type)}</strong>
+            <time dateTime={post.createdAt}>{formatPostTime(post.createdAt)}</time>
+          </div>
           <span>{post.report.code}</span>
-          <time>{new Date(post.createdAt).toLocaleString()}</time>
         </header>
         <p>{post.text}</p>
         {post.mediaUrl ? <a className="mediaAttachment" href={post.mediaUrl} target="_blank" rel="noreferrer">Abrir archivo adjunto</a> : null}
@@ -908,9 +928,11 @@ function ReportFeedPost({ report }: { report: PublicReport }) {
       <div className="postBody">
         <header>
           <Avatar initials={report.code.slice(-2)} color="#f0c7b8" />
-          <strong>{labelForType(report.type)}</strong>
+          <div className="postMeta">
+            <strong>{labelForType(report.type)}</strong>
+            <time dateTime={report.updatedAt}>{formatPostTime(report.updatedAt)}</time>
+          </div>
           <span>{report.code}</span>
-          <time>{new Date(report.updatedAt).toLocaleString()}</time>
         </header>
         {firstPerson ? (
           <p className="personLead">
@@ -1208,6 +1230,21 @@ function postLabel(type: PublicPostType): string {
     update: "Actualizacion"
   };
   return labels[type];
+}
+
+function formatPostTime(value: string): string {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  const diffMs = Date.now() - timestamp;
+  const future = diffMs < 0;
+  const minutes = Math.max(0, Math.round(Math.abs(diffMs) / 60000));
+  if (minutes < 1) return "Ahora";
+  if (minutes < 60) return future ? `En ${minutes} min` : `Hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return future ? `En ${hours} h` : `Hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return future ? `En ${days} d` : `Hace ${days} d`;
+  return new Intl.DateTimeFormat("es-VE", { day: "2-digit", month: "short" }).format(timestamp);
 }
 
 function statusLabel(status: string): string {
