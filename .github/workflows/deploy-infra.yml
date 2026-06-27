@@ -27,6 +27,7 @@ jobs:
           MONTHLY_BUDGET_AMOUNT: ${{ vars.MONTHLY_BUDGET_AMOUNT }}
           MEDIA_UPLOADS_ENABLED: ${{ vars.MEDIA_UPLOADS_ENABLED }}
           GEOCODING_ENABLED: ${{ vars.GEOCODING_ENABLED }}
+          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
         run: |
           budgetContactEmailsJson="${BUDGET_CONTACT_EMAILS_JSON:-[]}"
           monthlyBudgetAmount="${MONTHLY_BUDGET_AMOUNT:-25}"
@@ -45,5 +46,7 @@ jobs:
               azureMapsRoleDefinitionId="${{ vars.AZURE_MAPS_ROLE_DEFINITION_ID }}" \
               mediaUploadsEnabled="$mediaUploadsEnabled" \
               geocodingEnabled="$geocodingEnabled" \
+              turnstileSiteKey="${TURNSTILE_SITE_KEY:-}" \
+              turnstileSecretKey="${{ secrets.TURNSTILE_SECRET_KEY }}" \
               budgetContactEmailsJson="$budgetContactEmailsJson" \
               monthlyBudgetAmount="$monthlyBudgetAmount"

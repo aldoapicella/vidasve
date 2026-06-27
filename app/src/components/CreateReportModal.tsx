@@ -1,6 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createReport, searchPlaces } from "../api/client";
 import type { PersonStatus, PlaceSuggestion, PublicConfig, PublicPerson, ReportType } from "../types";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: {
+        sitekey: string;
+        theme?: "light" | "dark" | "auto";
+        callback: (token: string) => void;
+        "expired-callback"?: () => void;
+        "error-callback"?: () => void;
+      }) => string;
+      remove?: (widgetId: string) => void;
+    };
+  }
+}
 
 export interface CreatedReport {
   code: string;
@@ -65,7 +80,9 @@ export function CreateReportModal({
   const [addressText, setAddressText] = useState("");
   const [places, setPlaces] = useState<PlaceSuggestion[]>([]);
   const [persons, setPersons] = useState<DraftPerson[]>([newPerson()]);
+  const [captchaToken, setCaptchaToken] = useState("");
   const pointOutsideZone = location && !locationUnknown && !pointInAllowedZones(location, config.allowedBboxes);
+  const useTurnstile = config.captcha?.provider === "turnstile" && Boolean(config.captcha.siteKey);
 
   useEffect(() => {
     if (!config.features.geocoding || addressText.trim().length < 3) {
@@ -84,6 +101,10 @@ export function CreateReportModal({
       setError("El punto está fuera de las zonas activas.");
       return;
     }
+    if (useTurnstile && !captchaToken) {
+      setError("Completa la verificación humana.");
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -96,7 +117,8 @@ export function CreateReportModal({
         website: form.get("website"),
         company: form.get("company"),
         middleName: form.get("middleName"),
-        captchaText: form.get("captchaText"),
+        captchaText: useTurnstile ? undefined : form.get("captchaText"),
+        captchaToken: useTurnstile ? captchaToken : undefined,
         location: locationUnknown || !location ? undefined : { type: "Point", coordinates: location },
         locationUnknown,
         locationAccuracy: locationUnknown ? "zone_only" : "approximate",
@@ -353,15 +375,23 @@ export function CreateReportModal({
           <p className="helperText">El contacto privado del reportante no se publica.</p>
         </details>
 
-        <label className="captchaField">
-          Verificación humana
-          <input name="captchaText" required autoComplete="off" inputMode="text" pattern="[Vv][Ii][Dd][Aa]" placeholder="Escribe VIDA" />
-          <small>Escribe VIDA para confirmar que este reporte fue enviado por una persona.</small>
-        </label>
+        {useTurnstile && config.captcha?.siteKey ? (
+          <section className="captchaField" aria-label="Verificación humana">
+            <strong>Verificación humana</strong>
+            <TurnstileWidget siteKey={config.captcha.siteKey} onToken={setCaptchaToken} />
+            <small>Protección contra abuso antes de enviar el reporte.</small>
+          </section>
+        ) : (
+          <label className="captchaField">
+            Verificación humana
+            <input name="captchaText" required autoComplete="off" inputMode="text" pattern="[Vv][Ii][Dd][Aa]" placeholder="Escribe VIDA" />
+            <small>Escribe VIDA para confirmar que este reporte fue enviado por una persona.</small>
+          </label>
+        )}
 
         {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="actions stickyActions">
-          <button type="submit" disabled={busy || Boolean(pointOutsideZone)}>
+          <button type="submit" disabled={busy || Boolean(pointOutsideZone) || (useTurnstile && !captchaToken)}>
             {busy ? "Enviando..." : "Enviar reporte"}
           </button>
           <button className="ghost" type="button" onClick={onClose}>
@@ -371,6 +401,47 @@ export function CreateReportModal({
       </form>
     </div>
   );
+}
+
+function TurnstileWidget({ siteKey, onToken }: { siteKey: string; onToken: (token: string) => void }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let widgetId: string | undefined;
+    let stopped = false;
+    onToken("");
+
+    if (!document.getElementById("turnstile-api")) {
+      const script = document.createElement("script");
+      script.id = "turnstile-api";
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    const render = () => {
+      if (stopped || widgetId || !containerRef.current || !window.turnstile) return;
+      widgetId = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        theme: "light",
+        callback: onToken,
+        "expired-callback": () => onToken(""),
+        "error-callback": () => onToken("")
+      });
+    };
+    const timer = window.setInterval(render, 200);
+    render();
+
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      if (widgetId) window.turnstile?.remove?.(widgetId);
+      onToken("");
+    };
+  }, [onToken, siteKey]);
+
+  return <div className="turnstileBox" ref={containerRef} />;
 }
 
 function newPerson(): DraftPerson {

@@ -33,20 +33,18 @@ test("parseCreateReportInput sanitizes public people and clamps invalid age/stat
   assert.equal(input.persons[1].description?.includes("<"), false);
 });
 
-test("validateCreateReport requires human verification text", () => {
+test("validateCreateReport validates report fields separately from captcha provider", () => {
   const valid = parseCreateReportInput({
     addressText: "Edificio",
     knownInfoPublic: "Texto público",
-    locationUnknown: true,
-    captchaText: "VIDA"
+    locationUnknown: true
   });
   const invalid = parseCreateReportInput({
     addressText: "Edificio",
     knownInfoPublic: "Texto público",
-    locationUnknown: true,
-    captchaText: "bot"
+    locationUnknown: false
   });
 
   assert.equal(validateCreateReport(valid), null);
-  assert.equal(validateCreateReport(invalid), "captcha_failed");
+  assert.equal(validateCreateReport(invalid), "location_required");
 });

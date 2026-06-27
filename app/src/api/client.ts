@@ -7,7 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, ""
 const SERVER_STATUSES = new Set(["new", "confirmed", "maybe_resolved", "resolved", "reopened"]);
 const API_ERROR_MESSAGES: Record<string, string> = {
   address_required: "Indica una ubicación o referencia.",
-  captcha_failed: "Escribe VIDA en la verificación humana.",
+  captcha_failed: "Completa la verificación humana.",
   description_required: "Describe qué ocurre con información pública y verificable.",
   duplicate_challenge: "La verificación expiró. Intenta enviar de nuevo.",
   invalid_challenge: "No se pudo validar la verificación automática. Intenta de nuevo.",

@@ -76,6 +76,8 @@ MEDIA_UPLOADS_ENABLED=false
 MEDIA_STORAGE_ACCOUNT=<solo si MEDIA_UPLOADS_ENABLED=true>
 MEDIA_CONTAINER=report-media
 GEOCODING_ENABLED=true
+TURNSTILE_SITE_KEY=<opcional, Cloudflare Turnstile>
+TURNSTILE_SECRET_KEY=<opcional, Cloudflare Turnstile secret, solo API>
 DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
@@ -83,6 +85,7 @@ No configures Azure Maps subscription key en la SPA. El frontend pide `/api/maps
 El autocomplete de ubicación usa `/api/places?q=...`, también via Managed Identity, y solo devuelve resultados dentro de `ALLOWED_BBOXES_JSON`.
 `ALLOWED_BBOXES_JSON` define las zonas afectadas visibles e interactivas del mapa. Por defecto cubre Caracas, La Guaira, Altos Mirandinos y Guarenas-Guatire; ajusta esos bboxes cuando operaciones confirme nuevas zonas.
 Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el área. No hay clustering server-side todavía.
+Si configuras `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`, el formulario usa Cloudflare Turnstile y valida el token en backend. Si faltan, queda activo el fallback local de escribir `VIDA`.
 
 ## Infraestructura
 
@@ -117,6 +120,7 @@ Valores reales que debes configurar:
 - `azureMapsRoleDefinitionId` si quieres que Bicep haga el role assignment de Azure Maps en tu tenant
 - `budgetContactEmailsJson` opcional, ejemplo `["ops@example.com"]`, para crear alertas de costo
 - `reportRetentionSeconds` y `eventRetentionSeconds` opcionales; default 90 dias
+- `turnstileSiteKey` y `turnstileSecretKey` opcionales para captcha real con Cloudflare Turnstile
 
 Cosmos se crea con free tier, throughput compartido de 1000 RU/s y TTL configurable para reportes/eventos. Application Insights se crea para la Function App. Blob Storage de media solo se crea si `mediaUploadsEnabled=true`.
 Si la suscripcion ya uso el unico Cosmos free tier permitido, despliega con `enableCosmosFreeTier=false`.
@@ -143,6 +147,7 @@ BUDGET_CONTACT_EMAILS_JSON opcional, ejemplo ["ops@example.com"]
 MONTHLY_BUDGET_AMOUNT opcional, default 25
 MEDIA_UPLOADS_ENABLED opcional, usa `true` para crear Blob Storage y activar archivos
 GEOCODING_ENABLED opcional, default `true`
+TURNSTILE_SITE_KEY opcional
 ```
 
 Secrets de GitHub:
@@ -150,6 +155,7 @@ Secrets de GitHub:
 ```text
 APP_HMAC_SECRET
 PII_ENCRYPTION_KEY
+TURNSTILE_SECRET_KEY opcional
 ```
 
 No se usa publish profile. `deploy-app.yml` obtiene el token de deploy de Static Web Apps durante el workflow con Azure CLI y lo enmascara.

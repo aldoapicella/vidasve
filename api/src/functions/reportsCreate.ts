@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
 import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
+import { validateCaptcha } from "../lib/captcha.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { encryptText, hashSecret, randomBase64Url } from "../lib/crypto.js";
@@ -45,6 +46,8 @@ app.http("reportsCreate", {
 
     const validationError = validateCreateReport(input);
     if (validationError) return json(request, 400, { ok: false, error: validationError });
+    const captchaError = await validateCaptcha(input);
+    if (captchaError) return json(request, 400, { ok: false, error: captchaError });
 
     const allowedBboxes = parseAllowedBboxes(env("ALLOWED_BBOXES_JSON"));
     if (input.location && !pointInAllowedBboxes(input.location, allowedBboxes)) {

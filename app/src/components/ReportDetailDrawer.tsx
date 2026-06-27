@@ -179,6 +179,11 @@ export function ReportDetailDrawer({
           {events.map((event) => (
             <li key={event.id}>
               <span>{eventTypeLabel(event.type)}</span>
+              {event.thumbnailUrl ? (
+                <a className="timelineMedia" href={event.mediaUrl ?? event.thumbnailUrl} target="_blank" rel="noreferrer">
+                  <img src={event.thumbnailUrl} alt={`Imagen pública para ${report.code}`} />
+                </a>
+              ) : null}
               <p>{event.message}</p>
               <time>{new Date(event.createdAt).toLocaleString()}</time>
             </li>

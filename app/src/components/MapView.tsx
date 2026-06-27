@@ -28,6 +28,7 @@ export function MapView({
   const reportsLayerRef = useRef<atlas.layer.BubbleLayer | null>(null);
   const pickedMarkerRef = useRef<atlas.HtmlMarker | null>(null);
   const fallbackLoadedRef = useRef(false);
+  const suppressNextMapClickRef = useRef(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapReady, setMapReady] = useState(false);
 
@@ -88,8 +89,15 @@ export function MapView({
           }),
           reportsLayer
         ]);
+        const suppressOneMapClick = () => {
+          suppressNextMapClickRef.current = true;
+          window.setTimeout(() => {
+            suppressNextMapClickRef.current = false;
+          }, 0);
+        };
         map.events.add("moveend", () => onBoundsChange(bounds(map)));
         map.events.add("click", clusterLayer, (event) => {
+          suppressOneMapClick();
           const shape = event.shapes?.[0];
           const properties = shapeProperties(shape);
           const clusterId = Number(properties?.cluster_id);
@@ -100,11 +108,15 @@ export function MapView({
           }).catch(() => undefined);
         });
         map.events.add("click", reportsLayer, (event) => {
+          suppressOneMapClick();
           const report = reportFromShape(event.shapes?.[0]);
           if (report) onReportSelect(report);
         });
         map.events.add("click", (event) => {
-          if (event.shapes?.length) return;
+          if (suppressNextMapClickRef.current) {
+            suppressNextMapClickRef.current = false;
+            return;
+          }
           const position = event.position ? [event.position[0], event.position[1]] as [number, number] : undefined;
           if (position && pointInAllowedZones(position, config.allowedBboxes)) onMapClick(position);
         });

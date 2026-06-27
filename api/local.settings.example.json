@@ -16,6 +16,8 @@
     "MEDIA_STORAGE_ACCOUNT": "",
     "MEDIA_CONTAINER": "report-media",
     "GEOCODING_ENABLED": "false",
+    "TURNSTILE_SITE_KEY": "",
+    "TURNSTILE_SECRET_KEY": "",
     "DAILY_MAP_TOKEN_SOFT_LIMIT": "5000"
   }
 }

@@ -17,6 +17,8 @@ export function requiredEnv(name: string): string {
 }
 
 export function publicConfig() {
+  const turnstileSiteKey = env("TURNSTILE_SITE_KEY");
+  const turnstileSecretKey = env("TURNSTILE_SECRET_KEY");
   return {
     defaultCenter: parseJson(env("DEFAULT_CENTER_JSON"), [10.6031, -66.9334]),
     defaultZoom: Number(env("DEFAULT_ZOOM", "11")),
@@ -25,7 +27,10 @@ export function publicConfig() {
     features: {
       mediaUploads: envBool("MEDIA_UPLOADS_ENABLED"),
       geocoding: envBool("GEOCODING_ENABLED")
-    }
+    },
+    captcha: turnstileSiteKey && turnstileSecretKey
+      ? { provider: "turnstile", siteKey: turnstileSiteKey }
+      : { provider: "text" }
   };
 }
 

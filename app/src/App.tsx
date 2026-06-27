@@ -18,7 +18,8 @@ const DEFAULT_CONFIG: PublicConfig = {
   defaultZoom: 11,
   allowedBboxes: DEFAULT_AFFECTED_ZONES,
   azureMapsClientId: "",
-  features: { mediaUploads: false, geocoding: false }
+  features: { mediaUploads: false, geocoding: false },
+  captcha: { provider: "text" }
 };
 
 const APP_NAME = "VidaVE";

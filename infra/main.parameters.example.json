@@ -26,6 +26,12 @@
     "geocodingEnabled": {
       "value": true
     },
+    "turnstileSiteKey": {
+      "value": ""
+    },
+    "turnstileSecretKey": {
+      "value": ""
+    },
     "enableCosmosFreeTier": {
       "value": true
     },

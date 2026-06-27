@@ -27,6 +27,9 @@ param defaultCenterJson string = '[10.6031,-66.9334]'
 param defaultZoom string = '11'
 param mediaUploadsEnabled bool = false
 param geocodingEnabled bool = true
+param turnstileSiteKey string = ''
+@secure()
+param turnstileSecretKey string = ''
 param enableCosmosFreeTier bool = true
 param dailyMapTokenSoftLimit string = '5000'
 param reportRetentionSeconds int = 7776000
@@ -413,6 +416,8 @@ resource functionAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     MEDIA_STORAGE_ACCOUNT: mediaUploadsEnabled ? mediaStorageName : ''
     MEDIA_CONTAINER: 'report-media'
     GEOCODING_ENABLED: string(geocodingEnabled)
+    TURNSTILE_SITE_KEY: turnstileSiteKey
+    TURNSTILE_SECRET_KEY: turnstileSecretKey
     DAILY_MAP_TOKEN_SOFT_LIMIT: dailyMapTokenSoftLimit
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
   }

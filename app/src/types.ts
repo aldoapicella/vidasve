@@ -23,6 +23,7 @@ export interface PublicConfig {
   allowedBboxes: Array<{ name: string; minLng: number; minLat: number; maxLng: number; maxLat: number }>;
   azureMapsClientId?: string;
   features: { mediaUploads: boolean; geocoding: boolean };
+  captcha?: { provider: "text" | "turnstile"; siteKey?: string };
 }
 
 export interface PlaceSuggestion {

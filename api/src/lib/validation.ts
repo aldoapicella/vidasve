@@ -64,6 +64,7 @@ export function parseCreateReportInput(body: unknown): CreateReportInput {
     publishContact: Boolean(value.publishContact),
     deviceId: sanitizeText(value.deviceId, 120),
     captchaText: sanitizeText(value.captchaText, 20),
+    captchaToken: sanitizeText(value.captchaToken, 3000),
     website: sanitizeText(value.website, 80),
     company: sanitizeText(value.company, 80),
     middleName: sanitizeText(value.middleName, 80),
@@ -113,7 +114,6 @@ function parseAge(value: unknown): number | undefined {
 export function validateCreateReport(input: CreateReportInput): string | null {
   if (!input.addressText) return "address_required";
   if (!input.knownInfoPublic) return "description_required";
-  if (input.captchaText?.trim().toUpperCase() !== "VIDA") return "captcha_failed";
   if (!input.location && !input.locationUnknown) return "location_required";
   if (input.location) {
     const [lng, lat] = input.location.coordinates;

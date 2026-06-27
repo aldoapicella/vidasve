@@ -204,6 +204,7 @@ export interface CreateReportInput {
   publishContact?: boolean;
   deviceId?: string;
   captchaText?: string;
+  captchaToken?: string;
   website?: string;
   company?: string;
   middleName?: string;
