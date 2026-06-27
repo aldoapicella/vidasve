@@ -60,7 +60,7 @@ export function MapView({
           getToken: async (resolve) => resolve((await getMapToken()).token)
         }
       });
-      const source = new atlas.source.DataSource(undefined, { cluster: true, clusterRadius: 42 });
+      const source = new atlas.source.DataSource(undefined, { cluster: true, clusterRadius: 52 });
       sourceRef.current = source;
       mapRef.current = map;
       map.events.add("ready", () => {
@@ -68,37 +68,70 @@ export function MapView({
         if (activeBounds) map.setCamera({ bounds: activeBounds, maxBounds: activeBounds, padding: 48, maxZoom: config.defaultZoom });
         const clusterLayer = new atlas.layer.BubbleLayer(source, "clusters", {
           filter: ["has", "point_count"],
-          color: "#0f172a",
-          radius: 22,
+          color: ["step", ["to-number", ["get", "point_count"], 0], "#0f766e", 10, "#2563eb", 25, "#7c3aed", 75, "#f97316", 150, "#dc2626"],
+          radius: ["step", ["to-number", ["get", "point_count"], 0], 18, 10, 22, 25, 27, 75, 33, 150, 39],
           strokeColor: "#ffffff",
-          strokeWidth: 2
+          strokeWidth: 3,
+          opacity: 0.94
+        });
+        const clusterCountLayer = new atlas.layer.SymbolLayer(source, "cluster-count", {
+          filter: ["has", "point_count"],
+          iconOptions: { size: 0, opacity: 0, allowOverlap: true, ignorePlacement: true },
+          textOptions: {
+            textField: ["get", "point_count_abbreviated"],
+            color: "#ffffff",
+            size: ["step", ["to-number", ["get", "point_count"], 0], 13, 25, 15, 100, 17],
+            font: ["StandardFont-Bold"],
+            allowOverlap: true,
+            ignorePlacement: true,
+            haloColor: "#0f172a",
+            haloWidth: 1
+          }
         });
         const reportsLayer = new atlas.layer.BubbleLayer(source, "reports", {
           filter: ["!", ["has", "point_count"]],
-          color: ["match", ["get", "priority"], "P1", "#b91c1c", "P2", "#b45309", "#155e75"],
-          radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 15, 10],
+          color: [
+            "case",
+            ["==", ["get", "type"], "trapped_person"],
+            "#dc2626",
+            ["==", ["get", "type"], "collapsed_building_unknown"],
+            "#7c3aed",
+            ["==", ["get", "type"], "voices_or_hits"],
+            "#eab308",
+            ["==", ["get", "sourceType"], "localizadosvenezuela"],
+            "#2563eb",
+            ["match", ["get", "priority"], "P1", "#dc2626", "P2", "#f97316", "#0f766e"]
+          ],
+          radius: ["case", ["==", ["get", "code"], selectedCode ?? ""], 17, 12],
           strokeColor: "#ffffff",
-          strokeWidth: 2,
-          blur: 0.08
+          strokeWidth: 3,
+          blur: 0.04,
+          opacity: 0.95
+        });
+        const reportLabelsLayer = new atlas.layer.SymbolLayer(source, "report-labels", {
+          filter: ["!", ["has", "point_count"]],
+          iconOptions: { size: 0, opacity: 0, allowOverlap: true, ignorePlacement: true },
+          textOptions: {
+            textField: ["get", "markerLabel"],
+            color: "#ffffff",
+            size: ["case", ["==", ["get", "code"], selectedCode ?? ""], 12, 11],
+            font: ["StandardFont-Bold"],
+            allowOverlap: true,
+            ignorePlacement: true,
+            haloColor: "#0f172a",
+            haloWidth: 1
+          }
         });
         reportsLayerRef.current = reportsLayer;
         map.sources.add(source);
-        map.layers.add([
-          clusterLayer,
-          new atlas.layer.SymbolLayer(source, "cluster-count", {
-            filter: ["has", "point_count"],
-            textOptions: { textField: ["get", "point_count_abbreviated"], color: "#ffffff", size: 13 }
-          }),
-          reportsLayer
-        ]);
+        map.layers.add([clusterLayer, clusterCountLayer, reportsLayer, reportLabelsLayer]);
         const suppressOneMapClick = () => {
           suppressNextMapClickRef.current = true;
           window.setTimeout(() => {
             suppressNextMapClickRef.current = false;
           }, 0);
         };
-        map.events.add("moveend", () => onBoundsChange(bounds(map)));
-        map.events.add("click", clusterLayer, (event) => {
+        const expandCluster = (event: atlas.MapMouseEvent) => {
           suppressOneMapClick();
           const shape = event.shapes?.[0];
           const properties = shapeProperties(shape);
@@ -108,12 +141,17 @@ export function MapView({
           source.getClusterExpansionZoom(clusterId).then((zoom) => {
             map.setCamera({ center, zoom: Math.min(zoom + 0.4, 18), type: "ease", duration: 280 });
           }).catch(() => undefined);
-        });
-        map.events.add("click", reportsLayer, (event) => {
+        };
+        const openReport = (event: atlas.MapMouseEvent) => {
           suppressOneMapClick();
           const report = reportFromShape(event.shapes?.[0]);
           if (report) onReportSelect(report);
-        });
+        };
+        map.events.add("moveend", () => onBoundsChange(bounds(map)));
+        map.events.add("click", clusterLayer, expandCluster);
+        map.events.add("click", clusterCountLayer, expandCluster);
+        map.events.add("click", reportsLayer, openReport);
+        map.events.add("click", reportLabelsLayer, openReport);
         map.events.add("click", (event) => {
           if (suppressNextMapClickRef.current) {
             suppressNextMapClickRef.current = false;
@@ -148,7 +186,10 @@ export function MapView({
     source.add(
       reports
         .filter((report) => report.location && pointInAllowedZones(report.location.coordinates, config.allowedBboxes))
-        .map((report) => new atlas.data.Feature(new atlas.data.Point(report.location!.coordinates), report))
+        .map((report) => new atlas.data.Feature(new atlas.data.Point(report.location!.coordinates), {
+          ...report,
+          markerLabel: markerLabel(report)
+        }))
     );
   }, [reports, config.allowedBboxes]);
 
@@ -237,6 +278,22 @@ function MapLoading() {
 function reportFromShape(shape?: atlas.data.Feature<atlas.data.Geometry, PublicReport> | atlas.Shape): PublicReport | undefined {
   if (!shape) return undefined;
   return "getProperties" in shape ? (shape.getProperties() as PublicReport) : shape.properties;
+}
+
+function markerLabel(report: PublicReport): string {
+  const personCount = report.persons?.length;
+  if (personCount) return compactCount(personCount);
+  if (report.peopleCount === "2-5") return "2+";
+  if (report.peopleCount === "more_than_5") return "5+";
+  const numericCount = Number(String(report.peopleCount).replace(/[^\d]/g, ""));
+  if (Number.isFinite(numericCount) && numericCount > 0) return compactCount(numericCount);
+  return report.priority === "P1" ? "1" : report.priority === "P2" ? "2" : "3";
+}
+
+function compactCount(count: number): string {
+  if (count >= 1000) return `${Math.floor(count / 1000)}k`;
+  if (count >= 100) return "99+";
+  return String(count);
 }
 
 function shapeProperties(shape?: atlas.data.Feature<atlas.data.Geometry, Record<string, unknown>> | atlas.Shape): Record<string, unknown> | undefined {
