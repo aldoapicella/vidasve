@@ -115,6 +115,7 @@ const FILTER_CHIPS = [
 
 export function App() {
   const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
+  const [configReady, setConfigReady] = useState(false);
   const [reports, setReports] = useState<PublicReport[]>([]);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -159,7 +160,21 @@ export function App() {
   const searchResults = useMemo(() => searchPublicContent(searchTerm, scopedReports, feedPosts), [feedPosts, searchTerm, scopedReports]);
 
   useEffect(() => {
-    getConfig().then(setConfig).catch(() => setError("La configuracion no esta disponible. El mapa sigue en modo local."));
+    let active = true;
+    getConfig()
+      .then((next) => {
+        if (!active) return;
+        setConfig(next);
+        setConfigReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setConfigReady(true);
+        setError("La configuracion no esta disponible. El mapa sigue en modo local.");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -289,6 +304,7 @@ export function App() {
         <PublicFeed
           reports={visibleReports}
           posts={feedPosts}
+          configReady={configReady}
           mediaUploadsEnabled={config.features.mediaUploads}
           onUpload={() => setUploadOpen(true)}
           onReport={() => setCreateOpen(true)}
@@ -787,12 +803,14 @@ function FlyerCard({ name }: { name: string }) {
 function PublicFeed({
   reports,
   posts,
+  configReady,
   mediaUploadsEnabled,
   onUpload,
   onReport
 }: {
   reports: PublicReport[];
   posts: PublicPost[];
+  configReady: boolean;
   mediaUploadsEnabled: boolean;
   onUpload: () => void;
   onReport: () => void;
@@ -814,7 +832,7 @@ function PublicFeed({
       </div>
       <div className="feedComposer">
         <button type="button" onClick={onUpload}>Publicar historia/flyer</button>
-        {!mediaUploadsEnabled ? <span className="uploadDisabledNote">Archivos desactivados; texto disponible</span> : null}
+        {configReady && !mediaUploadsEnabled ? <span className="uploadDisabledNote">Archivos desactivados; texto disponible</span> : null}
         <button type="button" onClick={onReport}>Reportar emergencia</button>
       </div>
       <article className="signalFeedCard">

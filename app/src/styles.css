@@ -558,7 +558,7 @@ textarea {
 
 .placeSuggestList {
   position: relative;
-  z-index: 3;
+  z-index: 30;
   display: grid;
   gap: 6px;
   margin-top: 2px;
@@ -566,9 +566,13 @@ textarea {
   border-radius: 8px;
   padding: 6px;
   background: #ffffff;
+  isolation: isolate;
+  pointer-events: auto;
 }
 
 .placeSuggestList button {
+  position: relative;
+  z-index: 1;
   min-height: 48px;
   display: grid;
   justify-items: start;
@@ -577,6 +581,7 @@ textarea {
   background: #f8fafc;
   color: var(--ink);
   text-align: left;
+  pointer-events: auto;
 }
 
 .placeSuggestList button:hover {
@@ -721,6 +726,7 @@ legend {
 
 label,
 .fieldGroup {
+  position: relative;
   display: grid;
   gap: 6px;
   font-weight: 700;
@@ -791,7 +797,7 @@ label,
   border: 1px dashed #a8bab5;
   border-radius: 6px;
   padding: 12px;
-  word-break: break-all;
+  overflow-wrap: anywhere;
   background: var(--field);
 }
 
