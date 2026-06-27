@@ -285,7 +285,7 @@ export function App() {
     getConfig()
       .then((next) => {
         if (!active) return;
-        setConfig(next);
+        setConfig({ ...DEFAULT_CONFIG, ...next, features: { ...DEFAULT_CONFIG.features, ...next.features } });
         setConfigReady(true);
       })
       .catch(() => {

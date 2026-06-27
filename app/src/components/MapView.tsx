@@ -175,7 +175,7 @@ export function MapView({
         setMapFailed(true);
         onBoundsChange();
       }
-    }, 4200);
+    }, 20000);
     return () => window.clearTimeout(timeout);
   }, [config.azureMapsClientId, configReady, mapFailed, mapReady, onBoundsChange]);
 
