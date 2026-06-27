@@ -114,3 +114,22 @@ export interface PublicPost {
     derivedStatus: string;
   };
 }
+
+export interface PublicSearchResponse {
+  reports: PublicReport[];
+  people: Array<{
+    reportCode: string;
+    reportPriority: PublicReport["priority"];
+    reportAddress: string;
+    person: PublicPerson;
+  }>;
+  posts: PublicPost[];
+  locations: Array<{
+    code: string;
+    addressText: string;
+    landmark?: string;
+    area?: string;
+    city?: string;
+    priority: PublicReport["priority"];
+  }>;
+}

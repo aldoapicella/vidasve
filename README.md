@@ -1,6 +1,6 @@
-# VidasVE
+# VidaVE
 
-MVP P0: SPA publica con mapa primero, API en Azure Functions, Cosmos DB for NoSQL, Azure Maps sin subscription key en frontend, y despliegue por GitHub Actions con Azure OIDC.
+MVP P0: SPA pública con mapa primero, API en Azure Functions, Cosmos DB for NoSQL, Azure Maps sin subscription key en frontend, y despliegue por GitHub Actions con Azure OIDC.
 
 ## Estructura
 
@@ -11,8 +11,8 @@ infra/               Bicep
 .github/workflows/   CI y deploy
 ```
 
-La ruta `/` abre el mapa directamente. No hay landing page ni login obligatorio para reportar. La SPA incluye manifest PWA minimo para instalacion; el modo offline completo/outbox sigue limitado al banner de error y reintento.
-La SPA no muestra datos demo en produccion. Si necesitas la maqueta visual local, usa `VITE_DEMO_MODE=true`.
+La ruta `/` abre el mapa directamente. No hay landing page ni login obligatorio para reportar. La SPA incluye manifest PWA mínimo para instalación; el modo offline completo/outbox sigue limitado al banner de error y reintento.
+La SPA no muestra datos demo en producción. Si necesitas la maqueta visual local, usa `VITE_DEMO_MODE=true`.
 
 ## Setup local
 
@@ -80,9 +80,9 @@ DAILY_MAP_TOKEN_SOFT_LIMIT=5000
 ```
 
 No configures Azure Maps subscription key en la SPA. El frontend pide `/api/maps/token` y la Function obtiene el token con Managed Identity.
-El autocomplete de ubicacion usa `/api/places?q=...`, tambien via Managed Identity, y solo devuelve resultados dentro de `ALLOWED_BBOXES_JSON`.
+El autocomplete de ubicación usa `/api/places?q=...`, también via Managed Identity, y solo devuelve resultados dentro de `ALLOWED_BBOXES_JSON`.
 `ALLOWED_BBOXES_JSON` define las zonas afectadas visibles e interactivas del mapa. Por defecto cubre Caracas, La Guaira, Altos Mirandinos y Guarenas-Guatire; ajusta esos bboxes cuando operaciones confirme nuevas zonas.
-Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el area. No hay clustering server-side todavia.
+Si la API devuelve el tope de 500 reportes, la SPA muestra un aviso para acercar el mapa y reducir el área. No hay clustering server-side todavía.
 
 ## Infraestructura
 
@@ -166,7 +166,7 @@ PUBLIC_APP_URL=https://ashy-sky-0df7fa50f.7.azurestaticapps.net
 
 ## Dominio custom
 
-Azure App Service Domains no permite registrar `vidasve.app` porque el TLD `.app` no esta soportado por `Microsoft.DomainRegistration` (`TldValidationFailed ... app`). Registra `vidasve.app` en un registrador que soporte `.app` y luego conecta el apex a Static Web Apps:
+Azure App Service Domains no permite registrar `vidasve.app` porque el TLD `.app` no está soportado por `Microsoft.DomainRegistration` (`TldValidationFailed ... app`). Registra `vidasve.app` en un registrador que soporte `.app` y luego conecta el apex a Static Web Apps:
 
 ```bash
 az staticwebapp hostname set \
@@ -203,7 +203,7 @@ Importar reportes reales verificados desde CSV:
 API_BASE_URL=https://<function-app>.azurewebsites.net/api npm run import:reports -- verified.csv
 ```
 
-Columnas utiles: `addressText,knownInfoPublic,type,lat,lng,peopleCount,personName,personAge,personStatus,lastKnownPlace,lastContactText,signsOfLife,riskFlags,sourceType,reporterContact`.
+Columnas útiles: `addressText,knownInfoPublic,type,lat,lng,peopleCount,personName,personAge,personStatus,lastKnownPlace,lastContactText,signsOfLife,riskFlags,sourceType,reporterContact`.
 
 Pruebas incluidas:
 
@@ -224,15 +224,15 @@ Pruebas incluidas:
 - Owner token limitado al reporte del enlace privado; no se propaga al navegar a otros reportes.
 - Cierres no destructivos.
 - Eventos append-only.
-- Cierre comunitario solo por multiples senales independientes.
-- Reapertura publica y por owner token.
-- Dedupe basico al crear reporte.
-- Contactos no salen en respuestas publicas por defecto.
-- Personas publicas por reporte en `persons[]` con busqueda por persona, ubicacion o codigo.
+- Cierre comunitario solo por múltiples señales independientes.
+- Reapertura pública y por owner token.
+- Dedupe básico al crear reporte.
+- Contactos no salen en respuestas públicas por defecto.
+- Personas públicas por reporte en `persons[]` con búsqueda por persona, ubicación o código.
 - Publicaciones familiares de texto append-only sobre reportes reales.
-- Endpoint publico `GET /api/search?q=<texto>` para buscar reportes, personas, publicaciones y ubicaciones sin exponer contactos privados.
+- Endpoint público `GET /api/search?q=<texto>` para buscar reportes, personas, publicaciones y ubicaciones sin exponer contactos privados.
 - Mapa limitado a las zonas afectadas configuradas en `ALLOWED_BBOXES_JSON`.
-- Boton publico para abuso y senales de vida nuevas.
-- Retencion configurable de reportes y eventos.
-- Manifest PWA minimo y aviso visual cuando la lista de reportes esta truncada.
+- Botón público para abuso y señales de vida nuevas.
+- Retención configurable de reportes y eventos.
+- Manifest PWA mínimo y aviso visual cuando la lista de reportes está truncada.
 - Uploads de archivo/media por feature flag; si se activa, la API acepta PNG/JPEG/WebP/PDF hasta 5MB y escribe en Azure Blob Storage.

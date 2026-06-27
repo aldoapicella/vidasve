@@ -23,10 +23,10 @@ interface DraftPerson {
 }
 
 const TYPES: Array<[ReportType, string, string]> = [
-  ["trapped_person", "Persona atrapada", "Necesita rescate o verificacion urgente."],
-  ["voices_or_hits", "Se escuchan senales", "Voces, golpes o indicios de vida."],
-  ["missing_last_seen", "Ultima ubicacion", "Fue visto por ultima vez en este punto."],
-  ["collapsed_building_unknown", "Estructura colapsada", "No se sabe cuantas personas hay."]
+  ["trapped_person", "Persona atrapada", "Necesita rescate o verificación urgente."],
+  ["voices_or_hits", "Se escuchan señales", "Voces, golpes o indicios de vida."],
+  ["missing_last_seen", "Última ubicación", "Fue visto por última vez en este punto."],
+  ["collapsed_building_unknown", "Estructura colapsada", "No se sabe cuántas personas hay."]
 ];
 
 const RISKS = [
@@ -39,9 +39,9 @@ const RISKS = [
 ];
 
 const PERSON_STATUS_OPTIONS: Array<[PersonStatus, string]> = [
-  ["needs_verification", "Necesita verificacion"],
+  ["needs_verification", "Necesita verificación"],
   ["trapped", "Posiblemente atrapada"],
-  ["signals_of_life", "Con senales de vida"],
+  ["signals_of_life", "Con señales de vida"],
   ["missing", "No localizada"],
   ["found", "Encontrada"]
 ];
@@ -81,7 +81,7 @@ export function CreateReportModal({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pointOutsideZone) {
-      setError("El punto esta fuera de las zonas activas.");
+      setError("El punto está fuera de las zonas activas.");
       return;
     }
 
@@ -122,7 +122,7 @@ export function CreateReportModal({
 
   function useBrowserLocation() {
     if (!navigator.geolocation) {
-      setError("Este navegador no permite obtener ubicacion.");
+      setError("Este navegador no permite obtener ubicación.");
       return;
     }
     setError(null);
@@ -131,7 +131,7 @@ export function CreateReportModal({
         setLocation([position.coords.longitude, position.coords.latitude]);
         setLocationUnknown(false);
       },
-      () => setError("No se pudo obtener tu ubicacion.")
+      () => setError("No se pudo obtener tu ubicación.")
     );
   }
 
@@ -170,7 +170,7 @@ export function CreateReportModal({
             {pointOutsideZone ? <small>Fuera de las zonas activas configuradas.</small> : null}
           </div>
           <div className="locationActions">
-            <button className="ghost" type="button" onClick={useBrowserLocation}>Usar mi ubicacion</button>
+            <button className="ghost" type="button" onClick={useBrowserLocation}>Usar mi ubicación</button>
             <label className="checkRow">
               <input type="checkbox" checked={locationUnknown} onChange={(event) => setLocationUnknown(event.target.checked)} />
               No tengo punto exacto
@@ -179,7 +179,7 @@ export function CreateReportModal({
         </section>
 
         <div className="fieldGroup">
-          <label htmlFor="addressText">Ubicacion o referencia</label>
+          <label htmlFor="addressText">Ubicación o referencia</label>
           <input
             id="addressText"
             name="addressText"
@@ -191,7 +191,7 @@ export function CreateReportModal({
             autoComplete="off"
           />
           {places.length ? (
-            <div className="placeSuggestList" role="listbox" aria-label="Sugerencias de ubicacion">
+            <div className="placeSuggestList" role="listbox" aria-label="Sugerencias de ubicación">
               {places.map((place) => (
                 <button key={place.id} type="button" onClick={() => usePlace(place)}>
                   <strong>{place.label}</strong>
@@ -203,8 +203,8 @@ export function CreateReportModal({
         </div>
 
         <label>
-          Que ocurre
-          <textarea name="knownInfoPublic" required maxLength={900} rows={3} placeholder="Informacion publica y verificable." />
+          Qué ocurre
+          <textarea name="knownInfoPublic" required maxLength={900} rows={3} placeholder="Información pública y verificable." />
         </label>
 
         <div className="typeGrid" role="radiogroup" aria-label="Tipo de emergencia">
@@ -226,7 +226,7 @@ export function CreateReportModal({
           <div className="sectionHeader">
             <div>
               <h2>Personas relacionadas</h2>
-              <p>Agrega nombres, piso, ultimo contacto o contacto publico familiar si ya fue autorizado.</p>
+              <p>Agrega nombres, piso, último contacto o contacto público familiar si ya fue autorizado.</p>
             </div>
             <button className="ghost" type="button" onClick={() => setPersons((current) => [...current, newPerson()])}>
               Agregar persona
@@ -244,7 +244,7 @@ export function CreateReportModal({
               </div>
               <div className="inlineFields">
                 <label>
-                  Nombre publico
+                  Nombre público
                   <input value={person.displayName} maxLength={120} onChange={(event) => updatePerson(person.id, { displayName: event.target.value })} />
                 </label>
                 <label>
@@ -260,28 +260,28 @@ export function CreateReportModal({
                   </select>
                 </label>
                 <label>
-                  Piso/apto o ultimo lugar
+                  Piso/apto o último lugar
                   <input value={person.lastKnownPlace} maxLength={160} onChange={(event) => updatePerson(person.id, { lastKnownPlace: event.target.value })} />
                 </label>
               </div>
               <label>
-                Detalle publico
+                Detalle público
                 <input value={person.description} maxLength={240} onChange={(event) => updatePerson(person.id, { description: event.target.value })} />
               </label>
               <details>
-                <summary>Contacto publico autorizado</summary>
+                <summary>Contacto público autorizado</summary>
                 <div className="inlineFields">
                   <label>
                     Nombre
                     <input value={person.publicContactName} maxLength={100} onChange={(event) => updatePerson(person.id, { publicContactName: event.target.value })} />
                   </label>
                   <label>
-                    Telefono o WhatsApp
+                    Teléfono o WhatsApp
                     <input value={person.publicContactPhone} maxLength={80} onChange={(event) => updatePerson(person.id, { publicContactPhone: event.target.value })} />
                   </label>
                 </div>
                 <label>
-                  Relacion
+                  Relación
                   <input value={person.publicContactRelationship} maxLength={80} onChange={(event) => updatePerson(person.id, { publicContactRelationship: event.target.value })} />
                 </label>
               </details>
@@ -294,7 +294,7 @@ export function CreateReportModal({
           <label className="lifeToggle">
             <input name="signsOfLife" type="checkbox" />
             <span>
-              <strong>Hay senales de vida</strong>
+              <strong>Hay señales de vida</strong>
               <small>Sube la prioridad del reporte.</small>
             </span>
           </label>
@@ -304,18 +304,18 @@ export function CreateReportModal({
               <select name="peopleCount" defaultValue="unknown">
                 <option value="1">1</option>
                 <option value="2-5">2-5</option>
-                <option value="more_than_5">Mas de 5</option>
+                <option value="more_than_5">Más de 5</option>
                 <option value="unknown">No se sabe</option>
               </select>
             </label>
             <label>
-              Ultimo contacto general
+              Último contacto general
               <input name="lastContactText" maxLength={160} placeholder="Hoy 8:30 a.m., ayer en la noche..." />
             </label>
           </div>
           <label>
             Punto de referencia
-            <input name="landmark" maxLength={120} placeholder="Panaderia, escuela, esquina..." />
+            <input name="landmark" maxLength={120} placeholder="Panadería, escuela, esquina..." />
           </label>
           <div className="checks" aria-label="Riesgos">
             {RISKS.map(([risk, label]) => (
@@ -327,7 +327,7 @@ export function CreateReportModal({
           </div>
           <div className="inlineFields">
             <label>
-              Relacion
+              Relación
               <select name="sourceType" defaultValue="witness">
                 <option value="family">Familiar</option>
                 <option value="friend">Amigo</option>
@@ -338,12 +338,12 @@ export function CreateReportModal({
               </select>
             </label>
             <label>
-              Nombre publico opcional
+              Nombre público opcional
               <input name="reporterNamePublic" maxLength={80} />
             </label>
           </div>
           <label>
-            Telefono, WhatsApp o email privado
+            Teléfono, WhatsApp o email privado
             <input name="reporterContact" maxLength={160} autoComplete="tel" />
           </label>
           <p className="helperText">El contacto privado del reportante no se publica.</p>
@@ -408,7 +408,7 @@ function personToPayload(person: DraftPerson): PublicPerson | undefined {
 
 function summarizePeople(persons: PublicPerson[]): string {
   return persons
-    .map((person) => [person.displayName, person.age ? `${person.age} anos` : undefined, person.lastKnownPlace].filter(Boolean).join(", "))
+    .map((person) => [person.displayName, person.age ? `${person.age} años` : undefined, person.lastKnownPlace].filter(Boolean).join(", "))
     .join("; ")
     .slice(0, 240);
 }

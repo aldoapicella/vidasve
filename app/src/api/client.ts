@@ -1,4 +1,4 @@
-import type { EventType, PlaceSuggestion, PublicConfig, PublicEvent, PublicPost, PublicReport } from "../types";
+import type { EventType, PlaceSuggestion, PublicConfig, PublicEvent, PublicPost, PublicReport, PublicSearchResponse } from "../types";
 import type { Challenge, PowAction } from "../lib/pow";
 import { solvePow } from "../lib/pow";
 import { getDeviceId } from "../lib/deviceId";
@@ -38,6 +38,11 @@ export async function listPosts(): Promise<{ items: PublicPost[]; truncated: boo
 export async function searchPlaces(query: string): Promise<{ items: PlaceSuggestion[] }> {
   const params = new URLSearchParams({ q: query });
   return request(`/places?${params}`);
+}
+
+export async function searchPublic(query: string): Promise<PublicSearchResponse> {
+  const params = new URLSearchParams({ q: query });
+  return request(`/search?${params}`);
 }
 
 export async function createReport(payload: Record<string, unknown>): Promise<{

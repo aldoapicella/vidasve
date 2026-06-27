@@ -20,10 +20,25 @@ export function publicReport(report: Report): Omit<
   Report,
   "ownerTokenHash" | "reporterContactEncrypted" | "contactHash"
 > {
-  const { ownerTokenHash, reporterContactEncrypted, contactHash, ...safe } = report;
+  const {
+    ownerTokenHash,
+    reporterContactEncrypted,
+    contactHash,
+    _rid,
+    _self,
+    _etag,
+    _attachments,
+    _ts,
+    ...safe
+  } = report as Report & Record<string, unknown>;
   void ownerTokenHash;
   void reporterContactEncrypted;
   void contactHash;
+  void _rid;
+  void _self;
+  void _etag;
+  void _attachments;
+  void _ts;
   return safe;
 }
 

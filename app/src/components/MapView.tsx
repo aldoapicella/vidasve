@@ -105,6 +105,17 @@ export function MapView({
   }, [config, configReady, onBoundsChange, onMapClick, selectedCode]);
 
   useEffect(() => {
+    if (!configReady || !config.azureMapsClientId || mapReady || mapFailed) return;
+    const timeout = window.setTimeout(() => {
+      if (!mapReady) {
+        setMapFailed(true);
+        onBoundsChange();
+      }
+    }, 4200);
+    return () => window.clearTimeout(timeout);
+  }, [config.azureMapsClientId, configReady, mapFailed, mapReady, onBoundsChange]);
+
+  useEffect(() => {
     const source = sourceRef.current;
     if (!source) return;
     source.clear();
@@ -147,8 +158,8 @@ export function MapView({
     return (
       <section className="fallbackMap" aria-label="Lista de reportes">
         <div>
-          <h1>VidasVE</h1>
-          <p>Mapa no disponible. Se muestra la lista publica por zona.</p>
+          <h1>VidaVE</h1>
+          <p>Mapa no disponible. Se muestra la lista pública por zona.</p>
         </div>
         <div className="reportList">
           {reports.map((report) => (

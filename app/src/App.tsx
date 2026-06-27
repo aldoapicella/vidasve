@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createEvent, createPost, getConfig, getReport, listPosts, listReports } from "./api/client";
+import { createEvent, createPost, getConfig, getReport, listPosts, listReports, searchPublic } from "./api/client";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
 import { MapView } from "./components/MapView";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
-import type { PublicConfig, PublicEvent, PublicPost, PublicPostType, PublicReport } from "./types";
+import type { PublicConfig, PublicEvent, PublicPost, PublicPostType, PublicReport, PublicSearchResponse } from "./types";
 
 const DEFAULT_AFFECTED_ZONES: PublicConfig["allowedBboxes"] = [
   { name: "Caracas", minLng: -67.24, minLat: 10.34, maxLng: -66.72, maxLat: 10.62 },
@@ -21,14 +21,14 @@ const DEFAULT_CONFIG: PublicConfig = {
   features: { mediaUploads: false, geocoding: false }
 };
 
-const APP_NAME = "VidasVE";
+const APP_NAME = "VidaVE";
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true" || new URLSearchParams(location.search).get("demo") === "1";
 
 const DEMO_CASE = {
   code: "VE-ATLANTICO",
-  title: "Edificio Atlantico, La Guaira",
-  subtitle: "Av. La Playa, Urb. La Atlantida, Catia La Mar, La Guaira",
-  reference: "Frente al Hotel Catimar, al lado de la Panaderia Atlantico",
+  title: "Edificio Atlántico, La Guaira",
+  subtitle: "Av. La Playa, Urb. La Atlántida, Catia La Mar, La Guaira",
+  reference: "Frente al Hotel Catimar, al lado de la Panadería Atlántico",
   coords: "10.6026, -66.8772",
   peopleCount: 4,
   posts: 8,
@@ -36,59 +36,59 @@ const DEMO_CASE = {
 };
 
 const DEMO_PEOPLE = [
-  ["Valeria R.", "28 anos", "Estudiante de Medicina", "10 May, 11:30 a. m.", "ALTO RIESGO", "VR", "#f6c7b4", "Hermana: contacto privado verificado"],
-  ["Luis R.", "54 anos", "Ingeniero Electricista", "10 May, 11:15 a. m.", "ALTO RIESGO", "LR", "#d4a27e", "Hijo: contacto privado verificado"],
-  ["Santiago R.", "16 anos", "Estudiante 4to ano", "10 May, 11:20 a. m.", "MEDIO RIESGO", "SR", "#d2b48f", "Tia: contacto privado verificado"],
-  ["Maria R.", "62 anos", "Ama de casa", "10 May, 11:10 a. m.", "MEDIO RIESGO", "MR", "#c48f78", "Hija: contacto privado verificado"]
+  ["Valeria R.", "28 años", "Estudiante de Medicina", "10 May, 11:30 a. m.", "ALTO RIESGO", "VR", "#f6c7b4", "Hermana: contacto privado verificado"],
+  ["Luis R.", "54 años", "Ingeniero Electricista", "10 May, 11:15 a. m.", "ALTO RIESGO", "LR", "#d4a27e", "Hijo: contacto privado verificado"],
+  ["Santiago R.", "16 años", "Estudiante 4to año", "10 May, 11:20 a. m.", "MEDIO RIESGO", "SR", "#d2b48f", "Tía: contacto privado verificado"],
+  ["María R.", "62 años", "Ama de casa", "10 May, 11:10 a. m.", "MEDIO RIESGO", "MR", "#c48f78", "Hija: contacto privado verificado"]
 ];
 
 const DEMO_POSTS = [
   {
-    author: "Ana de Garcia",
+    author: "Ana de García",
     role: "Familiar",
     time: "Hoy, 8:15 a. m.",
-    person: "Maria Rodriguez",
+    person: "María Rodríguez",
     initials: "MR",
-    text: "Mi mama Maria Rodriguez fue vista por ultima vez en el lobby del Edificio Atlantico el 10/05 a las 11:20 a. m. Vestia blusa azul y pantalon gris.",
-    place: "Edificio Atlantico, Piso 4",
+    text: "Mi mamá María Rodríguez fue vista por última vez en el lobby del Edificio Atlántico el 10/05 a las 11:20 a. m. Vestía blusa azul y pantalón gris.",
+    place: "Edificio Atlántico, Piso 4",
     risk: "ALTO RIESGO"
   },
   {
-    author: "Carlos Rodriguez",
+    author: "Carlos Rodríguez",
     role: "Familiar",
     time: "Ayer, 6:40 p. m.",
-    person: "Luis Rodriguez",
+    person: "Luis Rodríguez",
     initials: "LR",
     text: "Luis no ha respondido desde el sismo. Si alguien lo ha visto, por favor avisen.",
     place: "Residencias Parque Caribe, Torre B",
     risk: "RIESGO MEDIO"
   },
   {
-    author: "Sofia Martinez",
+    author: "Sofía Martínez",
     role: "Amiga",
     time: "Ayer, 5:10 p. m.",
     person: "Santiago R.",
     initials: "SR",
     text: "Busco a mi amigo Santiago R. Estudiamos juntos. Puede estar cerca de Catia La Mar.",
     place: "Catia La Mar",
-    risk: "NECESITA VERIFICACION"
+    risk: "NECESITA VERIFICACIÓN"
   }
 ];
 
-const DEMO_MEDIA = ["Valeria Rodriguez", "Luis Rodriguez", "Santiago Rodriguez", "Maria Rodriguez"];
+const DEMO_MEDIA = ["Valeria Rodríguez", "Luis Rodríguez", "Santiago Rodríguez", "María Rodríguez"];
 
 const DEMO_UPDATES = [
-  "Hoy 12:45 p. m. — Vecino reporto sonidos de golpes en el piso 3, lado este del edificio.",
-  "Hoy 11:20 a. m. — Familiar confirmo que 4 personas estaban en el apartamento 3B.",
-  "Ayer 6:30 p. m. — Se reporto perdida de comunicacion en la zona."
+  "Hoy 12:45 p. m. — Vecino reportó sonidos de golpes en el piso 3, lado este del edificio.",
+  "Hoy 11:20 a. m. — Familiar confirmó que 4 personas estaban en el apartamento 3B.",
+  "Ayer 6:30 p. m. — Se reportó pérdida de comunicación en la zona."
 ];
 
 const DEMO_REPORTS: PublicReport[] = [
-  demoReport("DEMO-18", -67.05, 10.60, "P1", "Edificio Atlantico, La Guaira", "4 personas vinculadas"),
-  demoReport("DEMO-14", -67.09, 10.49, "P1", "Torre Miramar, Caracas", "Senales de vida recientes"),
+  demoReport("DEMO-18", -67.05, 10.60, "P1", "Edificio Atlántico, La Guaira", "4 personas vinculadas"),
+  demoReport("DEMO-14", -67.09, 10.49, "P1", "Torre Miramar, Caracas", "Señales de vida recientes"),
   demoReport("DEMO-09", -66.93, 10.55, "P2", "Macuto", "Atrapados sin confirmar"),
   demoReport("DEMO-06", -66.90, 10.44, "P2", "Petare", "Riesgo medio"),
-  demoReport("DEMO-05", -67.14, 10.53, "P3", "La Guaira", "Informacion incompleta")
+  demoReport("DEMO-05", -67.14, 10.53, "P3", "La Guaira", "Información incompleta")
 ];
 
 const DEMO_FEED_POSTS: PublicPost[] = DEMO_POSTS.map((post, index) => ({
@@ -133,32 +133,32 @@ const FILTER_CHIPS = [
 const INFO_PAGES = {
   "/aviso-legal": {
     title: "Aviso legal",
-    intro: "VidasVE organiza reportes comunitarios para orientar busqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
+    intro: "VidaVE organiza reportes comunitarios para orientar búsqueda y rescate. No reemplaza canales oficiales ni servicios de emergencia.",
     sections: [
-      ["Uso de la informacion", "La informacion publicada puede venir de familiares, testigos o comunidad. Debe tratarse como pista operativa pendiente de verificacion."],
-      ["Sin garantias", "El servicio puede tener errores, demoras o datos incompletos durante una emergencia. Confirma decisiones criticas con autoridades, rescatistas u organismos competentes."],
-      ["Conducta prohibida", "No publiques informacion falsa, datos privados innecesarios, amenazas, doxxing ni contenido que ponga en riesgo a personas afectadas o equipos de rescate."],
-      ["Reportes y cierres", "Un tercero no puede cerrar u ocultar un reporte por si solo. Las señales comunitarias quedan como eventos publicos para revision independiente."]
+      ["Uso de la información", "La información publicada puede venir de familiares, testigos o comunidad. Debe tratarse como pista operativa pendiente de verificación."],
+      ["Sin garantías", "El servicio puede tener errores, demoras o datos incompletos durante una emergencia. Confirma decisiones críticas con autoridades, rescatistas u organismos competentes."],
+      ["Conducta prohibida", "No publiques información falsa, datos privados innecesarios, amenazas, doxxing ni contenido que ponga en riesgo a personas afectadas o equipos de rescate."],
+      ["Reportes y cierres", "Un tercero no puede cerrar u ocultar un reporte por sí solo. Las señales comunitarias quedan como eventos públicos para revisión independiente."]
     ]
   },
   "/privacidad": {
     title: "Privacidad",
-    intro: "Por defecto VidasVE minimiza datos sensibles y no expone telefonos o contactos privados en fichas publicas.",
+    intro: "Por defecto VidaVE minimiza datos sensibles y no expone teléfonos o contactos privados en fichas públicas.",
     sections: [
-      ["Datos publicos", "Las fichas pueden mostrar ubicacion aproximada, descripcion publica, estado operativo, publicaciones familiares y eventos comunitarios."],
-      ["Datos privados", "Los contactos directos y enlaces de propietario se tratan como privados. No compartas el token de propietario en redes sociales ni chats publicos."],
-      ["Seguridad", "La API aplica proof-of-work, honeypot y limites por IP, dispositivo, contacto, reporte y zona para reducir abuso automatizado."],
-      ["Retencion", "Los reportes y eventos tienen retencion limitada segun la configuracion de infraestructura. Pide correcciones si detectas informacion falsa o riesgosa."]
+      ["Datos públicos", "Las fichas pueden mostrar ubicación aproximada, descripción pública, estado operativo, publicaciones familiares y eventos comunitarios."],
+      ["Datos privados", "Los contactos directos y enlaces de propietario se tratan como privados. No compartas el token de propietario en redes sociales ni chats públicos."],
+      ["Seguridad", "La API aplica proof-of-work, honeypot y límites por IP, dispositivo, contacto, reporte y zona para reducir abuso automatizado."],
+      ["Retención", "Los reportes y eventos tienen retención limitada según la configuración de infraestructura. Pide correcciones si detectas información falsa o riesgosa."]
     ]
   },
   "/tips-seguridad": {
     title: "Tips de seguridad",
-    intro: "Usa VidasVE para coordinar informacion, no para entrar en zonas de riesgo sin autorizacion.",
+    intro: "Usa VidaVE para coordinar información, no para entrar en zonas de riesgo sin autorización.",
     sections: [
-      ["Si estas afectado", "Reporta la ubicacion mas aproximada, numero de personas, señales de vida, ultimo contacto y referencias visuales utiles."],
-      ["Si eres familiar", "Publica historias, fotos o flyers solo con informacion necesaria. Evita telefonos personales en texto publico."],
-      ["Si estas cerca", "No ingreses a estructuras dañadas. Crea una pista de ayuda o señales de vida y comparte detalles verificables."],
-      ["Verificacion", "Prioriza reportes con ubicacion clara, multiples señales independientes y datos consistentes. Denuncia abuso sin intentar ocultar reportes legitimos."]
+      ["Si estás afectado", "Reporta la ubicación más aproximada, número de personas, señales de vida, último contacto y referencias visuales útiles."],
+      ["Si eres familiar", "Publica historias, fotos o flyers solo con información necesaria. Evita teléfonos personales en texto público."],
+      ["Si estás cerca", "No ingreses a estructuras dañadas. Crea una pista de ayuda o señales de vida y comparte detalles verificables."],
+      ["Verificación", "Prioriza reportes con ubicación clara, múltiples señales independientes y datos consistentes. Denuncia abuso sin intentar ocultar reportes legítimos."]
     ]
   }
 } as const;
@@ -179,6 +179,7 @@ export function App() {
   const [pickHint, setPickHint] = useState(false);
   const [created, setCreated] = useState<CreatedReport | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [remoteSearchResults, setRemoteSearchResults] = useState<ReturnType<typeof searchPublicContent> | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef(filter);
@@ -198,19 +199,20 @@ export function App() {
   const personRoute = useMemo(() => personRouteId ? findPerson(contentReports, decodeURIComponent(personRouteId)) : undefined, [personRouteId, contentReports]);
   const filteredReports = useMemo(() => applyReportFilter(contentReports, filter), [contentReports, filter]);
   const visibleReports = useMemo(() => {
-    const needle = searchTerm.trim().toLowerCase();
+    const needle = normalizeSearch(searchTerm);
     if (!needle) return filteredReports;
     return filteredReports.filter((report) =>
       reportSearchValues(report)
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle))
+        .some((value) => normalizeSearch(String(value)).includes(needle))
     );
   }, [filteredReports, searchTerm]);
   const mapReports = DEMO_MODE && !searchTerm.trim() ? DEMO_REPORTS : visibleReports;
   const selectedOwnerToken =
     privateAccess && selected?.code.toUpperCase() === privateAccess.code ? privateAccess.token : undefined;
   const zoneNames = config.allowedBboxes.map((zone) => zone.name).join(", ");
-  const searchResults = useMemo(() => searchPublicContent(searchTerm, contentReports, contentPosts), [contentPosts, contentReports, searchTerm]);
+  const localSearchResults = useMemo(() => searchPublicContent(searchTerm, contentReports, contentPosts), [contentPosts, contentReports, searchTerm]);
+  const searchResults = remoteSearchResults ?? localSearchResults;
 
   useEffect(() => {
     let active = true;
@@ -223,7 +225,7 @@ export function App() {
       .catch(() => {
         if (!active) return;
         setConfigReady(true);
-        setError("La configuracion no esta disponible. El mapa sigue en modo local.");
+        setError("La configuración no está disponible. El mapa sigue en modo local.");
       });
     return () => {
       active = false;
@@ -274,6 +276,33 @@ export function App() {
   }, [refreshPosts]);
 
   useEffect(() => {
+    if (showFeed) return;
+    void refreshReports(undefined, filter);
+  }, [filter, refreshReports, showFeed]);
+
+  useEffect(() => {
+    const query = searchTerm.trim();
+    if (DEMO_MODE || query.length < 2) {
+      setRemoteSearchResults(null);
+      return;
+    }
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      searchPublic(query)
+        .then((result) => {
+          if (active) setRemoteSearchResults(searchRemoteContent(result));
+        })
+        .catch(() => {
+          if (active) setRemoteSearchResults(null);
+        });
+    }, 220);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     if (!showFeed) return;
     void refreshReports(undefined, filter);
     void refreshPosts();
@@ -301,12 +330,12 @@ export function App() {
   async function publishPost(code: string, payload: Record<string, unknown>) {
     await createPost(code, payload);
     await refreshPosts();
-    showToast("Publicacion guardada.");
+    showToast("Publicación guardada.");
   }
 
   const handleMapClick = useCallback((location: [number, number]) => {
     if (!pointInAllowedZones(location, config.allowedBboxes)) {
-      showToast("Ese punto esta fuera de las zonas activas.");
+      showToast("Ese punto está fuera de las zonas activas.");
       return;
     }
     setPickedLocation(location);
@@ -446,7 +475,7 @@ export function App() {
 
       {reportsTruncated ? (
         <section className={pickHint && !pickedLocation ? "limitNotice abovePickHint" : "limitNotice"} role="status">
-          Mostrando los {reportsLimit} reportes mas recientes. Acerca el mapa para ver una zona mas precisa.
+          Mostrando los {reportsLimit} reportes más recientes. Acerca el mapa para ver una zona más precisa.
         </section>
       ) : null}
 
@@ -472,7 +501,7 @@ export function App() {
             <strong>{formatLocation(pickedLocation)}</strong>
           </div>
           <button type="button" onClick={() => setCreateOpen(true)}>
-            Reportar aqui
+            Reportar aquí
           </button>
           <button className="ghost" type="button" onClick={() => setPickedLocation(undefined)}>
             Quitar
@@ -483,7 +512,7 @@ export function App() {
       {pickHint && !pickedLocation ? (
         <section className="pickHint" role="status">
           <strong>Toca el punto exacto dentro de las zonas activas.</strong>
-          <span>Luego confirma con "Reportar aqui".</span>
+          <span>Luego confirma con "Reportar aquí".</span>
           <button type="button" onClick={() => {
             setPickHint(false);
             setToast(null);
@@ -532,8 +561,8 @@ export function App() {
         <CasePreviewPanel
           onUpload={() => setUploadOpen(true)}
           onReport={() => setCreateOpen(true)}
-          onNearby={() => showToast("Pista recibida: tu disponibilidad queda registrada para revision comunitaria.")}
-          onLifeSignal={() => showToast("Señal de vida creada: se agrega como pista publica independiente, sin cerrar el caso.")}
+          onNearby={() => showToast("Pista recibida: tu disponibilidad queda registrada para revisión comunitaria.")}
+          onLifeSignal={() => showToast("Señal de vida creada: se agrega como pista pública independiente, sin cerrar el caso.")}
           onShare={() => {
             void navigator.clipboard?.writeText(`${window.location.origin}/caso/${DEMO_CASE.code}`).catch(() => undefined);
             showToast("Enlace de ficha listo para compartir.");
@@ -554,7 +583,7 @@ function InfoPage({ page }: { page: (typeof INFO_PAGES)[keyof typeof INFO_PAGES]
     <article className="infoPage">
       <a className="backLink" href="/">Volver al mapa</a>
       <header>
-        <span className="eyebrow">VidasVE Venezuela</span>
+        <span className="eyebrow">VidaVE Venezuela</span>
         <h1>{page.title}</h1>
         <p>{page.intro}</p>
       </header>
@@ -581,7 +610,7 @@ function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onC
         <h1 id="created-title">Reporte creado: {created.code}</h1>
         <p>
           Guarda este enlace privado. Solo con este enlace puedes marcar el reporte como resuelto de forma inmediata.
-          No lo compartas publicamente.
+          No lo compartas públicamente.
         </p>
         <div className="copyField">{created.ownerEditUrl}</div>
         <div className="actions">
@@ -589,7 +618,7 @@ function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onC
             Copiar enlace privado
           </button>
           <a className="button secondary" href={created.publicUrl}>
-            Abrir publico
+            Abrir público
           </a>
           <button className="ghost" type="button" onClick={onClose}>
             Cerrar
@@ -621,13 +650,13 @@ function PersonProfileDrawer({
         </button>
       </header>
       <section>
-        <h2>Ultima ubicacion</h2>
+        <h2>Última ubicación</h2>
         <p>{person.lastKnownPlace || report.addressText}</p>
-        {person.lastContactText ? <p>Ultimo contacto: {person.lastContactText}</p> : null}
+        {person.lastContactText ? <p>Último contacto: {person.lastContactText}</p> : null}
       </section>
       {person.description ? (
         <section>
-          <h2>Detalle publico</h2>
+          <h2>Detalle público</h2>
           <p>{person.description}</p>
         </section>
       ) : null}
@@ -653,19 +682,19 @@ function SignalHeader({
     <header className="signalHeader">
       <a className="signalBrand" href="/" aria-label={`${APP_NAME} inicio`}>
         <span className="heartMark" aria-hidden="true"><HeartIcon /></span>
-        <span>Vidas<span>VE</span></span>
+        <span>Vida<span>VE</span></span>
       </a>
       <label className="signalSearch">
         <SearchIcon />
         <input
-          aria-label="Buscar persona, edificio o ubicacion"
-          placeholder="Buscar persona, edificio o ubicacion"
+          aria-label="Buscar persona, edificio o ubicación"
+          placeholder="Buscar persona, edificio o ubicación"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
         />
       </label>
       <nav className="headerLinks" aria-label="Accesos">
-        <a href="/feed">Feed publico</a>
+        <a href="/feed">Feed público</a>
         <button className="reportButton" type="button" onClick={onReport}>Reportar <span aria-hidden="true">+</span></button>
       </nav>
     </header>
@@ -703,7 +732,7 @@ function FilterChips({
 
 function MobileSearchFilters() {
   return (
-    <div className="mobileSearchFilters" aria-label="Filtros de busqueda">
+    <div className="mobileSearchFilters" aria-label="Filtros de búsqueda">
       {["Todos", "Personas", "Ubicaciones", "Edificios"].map((item, index) => (
         <button key={item} className={index === 0 ? "active" : ""} type="button">{item}</button>
       ))}
@@ -719,7 +748,7 @@ function SearchOverlay({
   onOpenReport: (code: string) => void | Promise<void>;
 }) {
   return (
-    <section className="searchOverlay" aria-label="Resultados de busqueda">
+    <section className="searchOverlay" aria-label="Resultados de búsqueda">
       <SearchGroup title="Personas" items={results.people} onOpenReport={onOpenReport} />
       <SearchGroup title="Reportes" items={results.reports} onOpenReport={onOpenReport} />
       <SearchGroup title="Publicaciones" items={results.posts} onOpenReport={onOpenReport} />
@@ -787,7 +816,7 @@ function MapStatus({ zoneNames }: { zoneNames: string }) {
       <span></span>
       <div>
         <strong>Mapa operativo</strong>
-        <p>Interaccion limitada a zonas afectadas: {zoneNames}</p>
+        <p>Interacción limitada a zonas afectadas: {zoneNames}</p>
       </div>
     </section>
   );
@@ -802,7 +831,7 @@ function MapEmptyState({ reports, searchTerm }: { reports: PublicReport[]; searc
   return (
     <section className="mapEmptyState" role="status">
       <strong>{searchTerm.trim() ? "Sin resultados" : "Sin reportes visibles"}</strong>
-      <p>{searchTerm.trim() ? "Prueba otro nombre, codigo o referencia." : "Acerca el mapa o toca un punto dentro de la zona afectada para reportar."}</p>
+      <p>{searchTerm.trim() ? "Prueba otro nombre, código o referencia." : "Acerca el mapa o toca un punto dentro de la zona afectada para reportar."}</p>
     </section>
   );
 }
@@ -823,12 +852,12 @@ function CasePreviewPanel({
   onAbuse: () => void;
 }) {
   return (
-    <aside className="casePanel" aria-label="Ficha publica de caso">
+    <aside className="casePanel" aria-label="Ficha pública de caso">
       <button className="closePanel" type="button" aria-label="Cerrar ficha">×</button>
       <div className="caseHero">
         <span className="buildingBadge"><BuildingIcon /></span>
         <div>
-          <span className="publicBadge">Ficha publica</span>
+          <span className="publicBadge">Ficha pública</span>
           <h1>{DEMO_CASE.title}</h1>
           <p>{DEMO_CASE.subtitle}</p>
           <small>Referencia: {DEMO_CASE.reference}</small>
@@ -837,7 +866,7 @@ function CasePreviewPanel({
       </div>
       <section className="peopleSummary">
         <h2>{DEMO_CASE.peopleCount} personas reportadas en este edificio</h2>
-        <p>Informacion publica compartida por familiares y comunidad</p>
+        <p>Información pública compartida por familiares y comunidad</p>
       </section>
       <section>
         <h3>Personas en este edificio</h3>
@@ -857,23 +886,23 @@ function CasePreviewPanel({
         <button className="redAction" type="button" onClick={onNearby}>Estoy cerca</button>
         <button className="greenAction" type="button" onClick={onLifeSignal}>Hay señales de vida</button>
         <button className="outlineAction" type="button" onClick={onShare}>Compartir ficha</button>
-        <button className="dangerLinkAction" type="button" onClick={onAbuse}>Reportar abuso / informacion falsa</button>
+        <button className="dangerLinkAction" type="button" onClick={onAbuse}>Reportar abuso / información falsa</button>
       </div>
-      <p className="communityGuard">Una señal comunitaria crea una pista publica para revisar. No cierra ni oculta el caso por si sola.</p>
+      <p className="communityGuard">Una señal comunitaria crea una pista pública para revisar. No cierra ni oculta el caso por sí sola.</p>
       <section>
-        <h3>Actualizaciones publicas</h3>
+        <h3>Actualizaciones públicas</h3>
         <ol className="publicTimeline">
           {DEMO_UPDATES.map((update) => <li key={update}>{update}</li>)}
         </ol>
       </section>
       <section className="uploadBox">
-        <h3>Subir informacion familiar</h3>
-        <p>Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+        <h3>Subir información familiar</h3>
+        <p>Esta información será visible públicamente para facilitar búsqueda, ayuda y rescate.</p>
         <div>
           <button type="button" onClick={onUpload}>Cargar historia</button>
           <button type="button" onClick={onUpload}>Subir foto</button>
           <button type="button" onClick={onUpload}>Agregar flyer</button>
-          <button type="button" onClick={onReport}>Publicar actualizacion</button>
+          <button type="button" onClick={onReport}>Publicar actualización</button>
         </div>
       </section>
     </aside>
@@ -887,7 +916,7 @@ function PersonCard({ person }: { person: (typeof DEMO_PEOPLE)[number] }) {
       <strong>{person[0]}</strong>
       <span>{person[1]}</span>
       <p>{person[2]}</p>
-      <small>Ultimo contacto<br /><b>{person[3]}</b></small>
+      <small>Último contacto<br /><b>{person[3]}</b></small>
       <small className="publicContact">{person[7]}</small>
       <em className={person[4].startsWith("ALTO") ? "high" : "medium"}>{person[4]}</em>
     </article>
@@ -901,7 +930,7 @@ function FlyerCard({ name }: { name: string }) {
       <strong>SE BUSCA</strong>
       <Avatar initials={initials} color="#e9c2a6" />
       <span>{name}</span>
-      <small>{name.includes("Maria") ? "62 anos" : name.includes("Luis") ? "54 anos" : "28 anos"}</small>
+      <small>{name.includes("Maria") ? "62 años" : name.includes("Luis") ? "54 años" : "28 años"}</small>
     </article>
   );
 }
@@ -926,18 +955,18 @@ function PublicFeed({
       <div className="feedTitleRow">
         <div>
           <h1>Publicaciones</h1>
-          <p>Informacion publica publicada por familias y comunidad.</p>
+          <p>Información pública publicada por familias y comunidad.</p>
         </div>
         <select aria-label="Orden del feed" defaultValue="recent">
-          <option value="recent">Mas recientes</option>
-          <option value="urgent">Mas urgentes</option>
-          <option value="signals">Senales de vida</option>
+          <option value="recent">Más recientes</option>
+          <option value="urgent">Más urgentes</option>
+          <option value="signals">Señales de vida</option>
         </select>
       </div>
       <div className="feedComposer">
         <button type="button" onClick={onUpload}>Cargar historia</button>
         <button type="button" onClick={onUpload}>Subir foto</button>
-        <button type="button" onClick={onUpload}>Publicar actualizacion</button>
+        <button type="button" onClick={onUpload}>Publicar actualización</button>
         {configReady && !mediaUploadsEnabled ? <span className="uploadDisabledNote">Archivos desactivados; texto disponible</span> : null}
       </div>
       <article className="signalFeedCard">
@@ -952,7 +981,7 @@ function PublicFeed({
         <span className="purpleCircle"><BuildingIcon /></span>
         <div>
           <h2>Prioridad P1</h2>
-          <p>Reportes que requieren atencion inmediata</p>
+          <p>Reportes que requieren atención inmediata</p>
         </div>
         <span className="riskBadge">{urgentCount} activos</span>
       </article>
@@ -964,8 +993,8 @@ function PublicFeed({
 function FeedEmptyState() {
   return (
     <article className="feedEmptyState">
-      <strong>No hay publicaciones reales todavia.</strong>
-      <p>Cuando se creen reportes en las zonas activas, apareceran aqui por prioridad y fecha.</p>
+      <strong>No hay publicaciones reales todavía.</strong>
+      <p>Cuando se creen reportes en las zonas activas, aparecerán aquí por prioridad y fecha.</p>
     </article>
   );
 }
@@ -1020,7 +1049,7 @@ function ReportFeedPost({ report }: { report: PublicReport }) {
         {firstPerson ? (
           <p className="personLead">
             {firstPerson.displayName}
-            {firstPerson.age ? `, ${firstPerson.age} anos` : ""} · {personStatusLabel(firstPerson.status)}
+            {firstPerson.age ? `, ${firstPerson.age} años` : ""} · {personStatusLabel(firstPerson.status)}
           </p>
         ) : null}
         <p>{report.knownInfoPublic}</p>
@@ -1063,6 +1092,7 @@ function UploadPublicationModal({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
   const [reportCode, setReportCode] = useState(reports[0]?.code ?? "");
   const selectedReport = reports.find((report) => report.code === reportCode);
 
@@ -1093,9 +1123,9 @@ function UploadPublicationModal({
       <form className="modal uploadModal" onSubmit={submit}>
         <header>
           <div>
-            <span className="eyebrow">Publicacion familiar</span>
+            <span className="eyebrow">Publicación familiar</span>
             <h1 id="upload-title">Publicar historia o flyer</h1>
-            <p className="helperText">{enabled ? "Publica texto y archivo validado por la API." : "En este ambiente se guarda texto publico; archivos siguen desactivados."}</p>
+            <p className="helperText">{enabled ? "Publica texto y archivo validado por la API." : "En este ambiente se guarda texto público; archivos siguen desactivados."}</p>
           </div>
           <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>×</button>
         </header>
@@ -1121,7 +1151,7 @@ function UploadPublicationModal({
                   <option value="story">Historia</option>
                   <option value="flyer">Flyer</option>
                   <option value="photo">Foto</option>
-                  <option value="update">Actualizacion</option>
+                  <option value="update">Actualización</option>
                 </select>
               </label>
               <label>
@@ -1130,22 +1160,31 @@ function UploadPublicationModal({
                   <option value="">Sin etiqueta</option>
                   <option value="familia">Familia</option>
                   <option value="testigo">Testigo</option>
-                  <option value="senales">Senales de vida</option>
-                  <option value="verificar">Necesita verificacion</option>
+                  <option value="senales">Señales de vida</option>
+                  <option value="verificar">Necesita verificación</option>
                 </select>
               </label>
             </div>
             {enabled ? (
               <label>
                 Archivo
-                <input name="file" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+                <span className="filePicker">
+                  <input
+                    name="file"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")}
+                  />
+                  <span>Seleccionar archivo</span>
+                  <small>{fileName || "Sin archivo"}</small>
+                </span>
               </label>
             ) : null}
             <label>
-              Texto publico
-              <textarea name="text" required rows={4} maxLength={900} placeholder="Nombre, ubicacion, contexto, ultimo contacto o texto del flyer." />
+              Texto público
+              <textarea name="text" required rows={4} maxLength={900} placeholder="Nombre, ubicación, contexto, último contacto o texto del flyer." />
             </label>
-            <p className="safetyNote">Esta informacion sera visible publicamente para facilitar busqueda, ayuda y rescate.</p>
+            <p className="safetyNote">Esta información será visible públicamente para facilitar búsqueda, ayuda y rescate.</p>
           </>
         ) : (
           <p className="safetyNote">Crea o carga un reporte real antes de publicar historias o flyers.</p>
@@ -1162,7 +1201,7 @@ function UploadPublicationModal({
 
 function BottomNav({ active, onReport }: { active: "map" | "feed"; onReport: () => void }) {
   return (
-    <nav className="bottomNav" aria-label="Navegacion movil">
+    <nav className="bottomNav" aria-label="Navegación móvil">
       <a className={active === "map" ? "active" : ""} href="/">Mapa</a>
       <a href="#buscar">Buscar</a>
       <a className={active === "feed" ? "active" : ""} href="/feed">Feed</a>
@@ -1214,9 +1253,9 @@ interface SearchItem {
 }
 
 function searchPublicContent(term: string, reports: PublicReport[], posts: PublicPost[] = []) {
-  const needle = term.trim().toLowerCase();
+  const needle = normalizeSearch(term);
   if (!needle) return { reports: [], locations: [], people: [], posts: [] };
-  const includes = (value: string | undefined) => value?.toLowerCase().includes(needle);
+  const includes = (value: string | undefined) => normalizeSearch(value).includes(needle);
   const matches = reports.filter((report) => reportSearchValues(report).some(includes));
   const people = matches.flatMap((report) =>
     (report.persons ?? [])
@@ -1263,6 +1302,44 @@ function searchPublicContent(term: string, reports: PublicReport[], posts: Publi
   };
 }
 
+function searchRemoteContent(result: PublicSearchResponse): ReturnType<typeof searchPublicContent> {
+  return {
+    people: result.people.map((item) => ({
+      key: `${item.reportCode}-${item.person.id}`,
+      code: item.reportCode,
+      label: item.person.displayName,
+      detail: `${personStatusLabel(item.person.status)} · ${item.reportAddress}`,
+      href: `/persona/${item.person.id}`
+    })).slice(0, 5),
+    reports: result.reports.map((report) => ({
+      key: `report-${report.code}`,
+      code: report.code,
+      label: `${report.code} · ${labelForType(report.type)}`,
+      detail: `${report.priority} · ${statusLabel(report.derivedStatus)}`
+    })).slice(0, 5),
+    locations: result.locations.map((location) => ({
+      key: `location-${location.code}`,
+      code: location.code,
+      label: location.addressText,
+      detail: location.landmark || location.area || location.city || location.code
+    })).filter((item) => item.label).slice(0, 5),
+    posts: result.posts.map((post) => ({
+      key: `post-${post.id}`,
+      code: post.report.code,
+      label: post.text,
+      detail: `${postLabel(post.type)} · ${post.report.addressText}`
+    })).slice(0, 5)
+  };
+}
+
+function normalizeSearch(value: string | undefined): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function reportSearchValues(report: PublicReport): string[] {
   return [
     report.code,
@@ -1296,7 +1373,7 @@ function findPerson(reports: PublicReport[], id: string) {
 function labelForType(type: PublicReport["type"]): string {
   const labels: Record<PublicReport["type"], string> = {
     trapped_person: "Persona atrapada",
-    missing_last_seen: "Ultima ubicacion",
+    missing_last_seen: "Última ubicación",
     voices_or_hits: "Voces o golpes",
     collapsed_building_unknown: "Estructura colapsada"
   };
@@ -1331,16 +1408,28 @@ function formatPostTime(value: string): string {
 }
 
 function statusLabel(status: string): string {
-  return status.replace(/_/g, " ");
+  const labels: Record<string, string> = {
+    new: "Nuevo",
+    open: "Abierto",
+    confirmed: "Confirmado",
+    help_nearby: "Ayuda cerca",
+    maybe_resolved: "Posiblemente resuelto",
+    resolved: "Resuelto",
+    resolved_owner: "Resuelto por propietario",
+    resolved_community: "Resuelto por comunidad",
+    reopened: "Reabierto",
+    hidden_abuse: "Oculto por abuso"
+  };
+  return labels[status] ?? status.replace(/_/g, " ");
 }
 
 function personStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     trapped: "Posiblemente atrapada",
     missing: "No localizada",
-    signals_of_life: "Con senales de vida",
+    signals_of_life: "Con señales de vida",
     found: "Encontrada",
-    needs_verification: "Necesita verificacion"
+    needs_verification: "Necesita verificación"
   };
   return labels[status] ?? statusLabel(status);
 }

@@ -5,7 +5,7 @@ import { parseCreateReportInput } from "../src/lib/validation.js";
 test("parseCreateReportInput sanitizes public people and clamps invalid age/status", () => {
   const input = parseCreateReportInput({
     addressText: "Edificio",
-    knownInfoPublic: "Texto publico",
+    knownInfoPublic: "Texto público",
     persons: [
       {
         displayName: "<Ana>",

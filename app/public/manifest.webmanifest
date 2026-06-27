@@ -1,7 +1,7 @@
 {
-  "name": "VidasVE",
-  "short_name": "VidasVE",
-  "description": "Mapa publico de personas atrapadas, señales de vida y ultima ubicacion en Venezuela.",
+  "name": "VidaVE",
+  "short_name": "VidaVE",
+  "description": "Mapa público de personas atrapadas, señales de vida y última ubicación en Venezuela.",
   "lang": "es-VE",
   "start_url": "/",
   "scope": "/",

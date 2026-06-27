@@ -10,7 +10,7 @@ app.http("search", {
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     if (request.method === "OPTIONS") return options(request);
-    const query = sanitizeText(request.query.get("q"), 120).toLowerCase();
+    const query = normalizeSearch(sanitizeText(request.query.get("q"), 120));
     if (query.length < 2) return json(request, 200, { reports: [], people: [], posts: [], locations: [] });
 
     const store = getStore();
@@ -40,18 +40,26 @@ app.http("search", {
 });
 
 function matchesReport(report: Report, query: string): boolean {
-  return searchableReportValues(report).some((value) => value.toLowerCase().includes(query));
+  return searchableReportValues(report).some((value) => normalizeSearch(value).includes(query));
 }
 
 function matchingPeople(report: Report, query: string) {
   return (report.persons ?? [])
-    .filter((person) => searchablePersonValues(person).some((value) => value.toLowerCase().includes(query)))
+    .filter((person) => searchablePersonValues(person).some((value) => normalizeSearch(value).includes(query)))
     .map((person) => ({
       reportCode: report.code,
       reportPriority: report.priority,
       reportAddress: report.addressText,
       person
     }));
+}
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function searchableReportValues(report: Report): string[] {

@@ -454,7 +454,7 @@ textarea {
 .scrim {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 200;
   background: rgba(16, 24, 32, 0.62);
   display: grid;
   place-items: end center;
@@ -814,9 +814,8 @@ label,
 }
 
 .stickyActions {
-  position: sticky;
-  bottom: 0;
   padding: 12px 0 0;
+  border-top: 1px solid var(--line);
   background: var(--surface-strong);
 }
 
@@ -841,10 +840,10 @@ label,
 
 .detailDrawer {
   position: absolute;
-  top: 0;
+  top: 66px;
   right: 0;
-  bottom: 0;
-  z-index: 20;
+  bottom: 72px;
+  z-index: 34;
   width: min(440px, 100%);
   overflow: auto;
   background: var(--surface-strong);
@@ -1027,9 +1026,19 @@ label,
 
   .detailDrawer {
     top: auto;
-    height: min(78dvh, 760px);
+    bottom: 76px;
+    height: min(72dvh, 720px);
     width: 100%;
     border-radius: 8px 8px 0 0;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 520px) and (orientation: landscape) {
+  .detailDrawer {
+    top: 66px;
+    bottom: 0;
+    height: auto;
+    border-radius: 0;
   }
 }
 
@@ -1043,7 +1052,7 @@ label,
   }
 }
 
-/* VidasVE visual shell */
+/* VidaVE visual shell */
 :root {
   --sv-red: #dc2626;
   --sv-red-dark: #b91c1c;
@@ -1222,9 +1231,19 @@ svg {
   z-index: 22;
   display: flex;
   gap: 10px;
-  max-width: calc(100% - 700px);
+  max-width: calc(100% - 48px);
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+.detailOpen .signalFilters {
+  gap: 6px;
+  max-width: calc(100% - 500px);
+}
+
+.detailOpen .signalChip {
+  gap: 8px;
+  padding: 0 10px;
 }
 
 .signalChip {
@@ -1376,7 +1395,7 @@ svg {
 .mapStatus {
   position: absolute;
   left: 18px;
-  bottom: 126px;
+  bottom: 190px;
   z-index: 22;
   display: flex;
   gap: 10px;
@@ -1413,7 +1432,7 @@ svg {
   position: absolute;
   top: 66px;
   right: 0;
-  bottom: 54px;
+  bottom: 72px;
   z-index: 24;
   width: min(540px, 36vw);
   overflow: auto;
@@ -1737,6 +1756,9 @@ svg {
 }
 
 .signalFooter a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: var(--sv-muted);
   text-decoration: none;
 }
@@ -2070,6 +2092,48 @@ svg {
   margin: auto;
 }
 
+.filePicker {
+  position: relative;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 5px;
+  background: #f8fafc;
+}
+
+.filePicker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.filePicker span {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid var(--sv-border);
+  font-weight: 800;
+}
+
+.filePicker small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sv-muted);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bottomNav,
 .mobileSearchFilters {
   display: none;
@@ -2400,5 +2464,39 @@ svg {
   .postTags span,
   .postTags b {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 520px) and (orientation: landscape) {
+  .bottomNav {
+    display: none;
+  }
+
+  .headerLinks .reportButton {
+    display: inline-flex;
+  }
+
+  .mapCanvas,
+  .fallbackMap {
+    bottom: 0;
+  }
+
+  .mapLoading {
+    inset: 146px 0 0 0;
+  }
+
+  .signalShell .fabStack {
+    bottom: 18px;
+  }
+
+  .feedPage,
+  .feedShell .feedPage,
+  .infoPage,
+  .pageShell .infoPage {
+    margin-bottom: 24px;
+  }
+
+  .toast {
+    bottom: 16px;
   }
 }
