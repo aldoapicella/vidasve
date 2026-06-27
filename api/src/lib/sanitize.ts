@@ -43,8 +43,21 @@ export function publicReport(report: Report): Omit<
 }
 
 export function publicEvent(event: ReportEvent): Omit<ReportEvent, "actor"> {
-  const { actor, ...safe } = event;
+  const {
+    actor,
+    _rid,
+    _self,
+    _etag,
+    _attachments,
+    _ts,
+    ...safe
+  } = event as ReportEvent & Record<string, unknown>;
   void actor;
+  void _rid;
+  void _self;
+  void _etag;
+  void _attachments;
+  void _ts;
   return safe;
 }
 

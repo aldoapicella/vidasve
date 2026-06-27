@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { publicReport } from "../src/lib/sanitize.js";
-import type { Report } from "../src/lib/types.js";
+import { publicEvent, publicReport } from "../src/lib/sanitize.js";
+import type { Report, ReportEvent } from "../src/lib/types.js";
 
 test("publicReport removes private and Cosmos metadata fields", () => {
   const report = {
@@ -55,6 +55,37 @@ test("publicReport removes private and Cosmos metadata fields", () => {
     "_attachments",
     "_ts"
   ]) {
+    assert.equal(field in result, false);
+  }
+});
+
+test("publicEvent removes actor and Cosmos metadata fields", () => {
+  const event = {
+    id: "e1",
+    reportId: "r1",
+    reportCode: "VE-TEST",
+    type: "add_info",
+    message: "Dato público",
+    public: true,
+    actor: {
+      hasOwnerToken: false,
+      ipHash: "ip-private",
+      deviceHash: "device-private",
+      contactHash: "contact-private"
+    },
+    abuseScore: 0,
+    createdAt: "2026-06-26T00:00:00.000Z",
+    _rid: "cosmos-rid",
+    _self: "cosmos-self",
+    _etag: "cosmos-etag",
+    _attachments: "attachments/",
+    _ts: 1782520000
+  } as ReportEvent & Record<string, unknown>;
+
+  const result = publicEvent(event) as Record<string, unknown>;
+
+  assert.equal(result.reportCode, "VE-TEST");
+  for (const field of ["actor", "_rid", "_self", "_etag", "_attachments", "_ts"]) {
     assert.equal(field in result, false);
   }
 });
