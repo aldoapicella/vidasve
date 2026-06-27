@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseCreateReportInput, validateCreateReport } from "../src/lib/validation.js";
+import { parseCreateReportInput, parsePublicEvent, validateCreateReport } from "../src/lib/validation.js";
 
 test("parseCreateReportInput sanitizes public people and clamps invalid age/status", () => {
   const input = parseCreateReportInput({
@@ -31,6 +31,24 @@ test("parseCreateReportInput sanitizes public people and clamps invalid age/stat
   assert.equal(input.persons[1].age, undefined);
   assert.equal(input.persons[1].status, "needs_verification");
   assert.equal(input.persons[1].description?.includes("<"), false);
+});
+
+test("parsePublicEvent parses a public person addition", () => {
+  const event = parsePublicEvent({
+    type: "add_person",
+    person: {
+      displayName: "<Ana>",
+      age: "34",
+      floorOrUnit: "Piso 3",
+      status: "signals_of_life"
+    }
+  });
+
+  assert.equal(event.type, "add_person");
+  assert.equal(event.person?.displayName, "Ana");
+  assert.equal(event.person?.age, 34);
+  assert.equal(event.person?.floorOrUnit, "Piso 3");
+  assert.equal(event.person?.status, "signals_of_life");
 });
 
 test("validateCreateReport validates report fields separately from captcha provider", () => {

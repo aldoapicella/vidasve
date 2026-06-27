@@ -5,6 +5,7 @@ import { hmacBase64Url, safeEqual, randomBase64Url } from "./crypto.js";
 export const ACTION_DIFFICULTY: Record<PublicAction, number> = {
   create_report: 18,
   add_info: 16,
+  add_person: 16,
   nearby_help: 16,
   duplicate_claim: 17,
   resolution_claim: 19,

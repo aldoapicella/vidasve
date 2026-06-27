@@ -23,6 +23,7 @@ const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
     { key: "geoCell", windowSeconds: 600, max: 20, label: "geo" }
   ],
   add_info: commonMutationLimits(20, 30, 20, 10, 60),
+  add_person: commonMutationLimits(10, 15, 10, 8, 30),
   nearby_help: commonMutationLimits(20, 30, 20, 10, 60),
   resolution_claim: commonMutationLimits(3, 5, 3, 3, 20),
   duplicate_claim: commonMutationLimits(10, 15, 10, 5, 30),

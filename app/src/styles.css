@@ -3179,3 +3179,500 @@ svg {
     text-align: left;
   }
 }
+
+/* Production tone pass: denser, quieter, operational UI. */
+:root {
+  --sv-red: #c81e1e;
+  --sv-red-dark: #991b1b;
+  --sv-green: #15803d;
+  --sv-orange: #c2410c;
+  --sv-yellow: #a16207;
+  --sv-purple: #475569;
+  --sv-blue: #1d4ed8;
+  --sv-bg: #f3f6f8;
+  --sv-text: #111827;
+  --sv-muted: #64748b;
+  --sv-border: #d8dee6;
+  --sv-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+  --shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+}
+
+body {
+  font-size: 14px;
+}
+
+button,
+.button {
+  min-height: 40px;
+  border-radius: 6px;
+  padding: 0 14px;
+  font-weight: 650;
+}
+
+.signalHeader {
+  height: 58px;
+  grid-template-columns: 200px minmax(280px, 620px) 1fr;
+  gap: 14px;
+  padding: 0 18px 0 24px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.signalBrand {
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.heartMark {
+  width: 28px;
+  height: 28px;
+}
+
+.signalSearch input {
+  min-height: 40px;
+  border-radius: 6px;
+  padding-left: 46px;
+  font-size: 14px;
+}
+
+.headerLinks {
+  gap: 12px;
+}
+
+.headerLinks a {
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.reportButton {
+  min-width: 108px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.reportButton span {
+  font-size: 18px;
+}
+
+.signalFilters {
+  top: 70px;
+  left: 18px;
+  gap: 6px;
+}
+
+.detailOpen .signalFilters {
+  max-width: calc(34vw - 28px);
+}
+
+.signalChip {
+  min-height: 34px;
+  gap: 7px;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.signalChip b {
+  min-width: 24px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chipIcon {
+  width: 22px;
+  height: 22px;
+}
+
+.signalChip.active {
+  border-color: #1f2937;
+  background: #1f2937;
+}
+
+.mapControls {
+  top: 122px;
+  left: 16px;
+  gap: 8px;
+}
+
+.mapControls button {
+  width: 42px;
+  min-height: 42px;
+  border-radius: 7px;
+  box-shadow: var(--sv-shadow);
+  font-size: 20px;
+}
+
+.demoPin {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  border-width: 3px;
+  box-shadow: 0 0 0 8px rgba(200, 30, 30, 0.16), 0 8px 18px rgba(15, 23, 42, 0.18);
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.demoPin.orange {
+  box-shadow: 0 0 0 8px rgba(194, 65, 12, 0.16), 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+.demoPin.yellow {
+  box-shadow: 0 0 0 7px rgba(161, 98, 7, 0.16), 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.demoPin.purple {
+  box-shadow: 0 0 0 6px rgba(71, 85, 105, 0.16), 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.demoPin.heart,
+.demoPin.purple {
+  width: 38px;
+  height: 50px;
+  min-height: 50px;
+}
+
+.mapStatus,
+.mapEmptyState {
+  border-radius: 7px;
+  box-shadow: var(--sv-shadow);
+}
+
+.mapStatus {
+  bottom: 170px;
+  max-width: 360px;
+  padding: 10px 12px;
+}
+
+.primaryFab {
+  min-width: 180px;
+  box-shadow: none;
+  font-size: 14px;
+}
+
+.casePanel,
+.publicCaseDrawer {
+  background: #fbfcfe;
+  box-shadow: -10px 0 28px rgba(15, 23, 42, 0.12);
+}
+
+.casePanel {
+  top: 58px;
+  bottom: 54px;
+  width: min(520px, 36vw);
+  padding: 16px;
+}
+
+.caseHero {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+.buildingBadge,
+.purpleCircle,
+.detailBuildingIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.publicBadge {
+  min-height: 20px;
+  border-radius: 6px;
+  background: #eef2f7;
+  color: #334155;
+  font-weight: 700;
+}
+
+.caseHero h1 {
+  margin: 5px 0;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.riskBadge {
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.casePanel h2,
+.peopleSummary h2 {
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.casePanel h3,
+.sectionTitleRow h2,
+.caseSection h2 {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.personGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.personCard,
+.flyerCard,
+.publicPersonCard,
+.publicMediaCard,
+.caseSummary,
+.feedPost,
+.signalFeedCard,
+.buildingFeedCard {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.personCard {
+  padding: 9px;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 7px;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.personCard strong,
+.flyerCard span,
+.publicPersonCard strong {
+  font-weight: 750;
+}
+
+.personCard em,
+.publicPersonCard em,
+.caseSummary dd,
+.sectionTitleRow span,
+.publicMediaCard span,
+.flyerCard small,
+.timeline span,
+.footerChannels,
+.toast {
+  font-weight: 700;
+}
+
+.textLink,
+.dangerLinkAction,
+.feedAction,
+.mediaAttachment,
+.sourceLink,
+.backLink {
+  color: #334155;
+  font-weight: 700;
+}
+
+.mediaStrip {
+  gap: 8px;
+}
+
+.flyerCard {
+  min-height: 112px;
+}
+
+.flyerCard strong {
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.flyerCard .avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.moreMedia {
+  min-height: 112px;
+  color: #475569;
+  font-weight: 650;
+}
+
+.primaryActions,
+.detailPrimaryActions {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.outlineAction {
+  background: #ffffff;
+}
+
+.uploadBox,
+.updateComposer {
+  border-radius: 7px;
+  background: #f3f6f8;
+}
+
+.signalFooter {
+  min-height: 48px;
+  padding: 0 24px;
+  font-size: 12px;
+}
+
+.publicCaseDrawer {
+  top: 58px;
+  bottom: 48px;
+  width: min(760px, 48vw);
+  padding: 14px 16px 18px;
+}
+
+.publicCaseHero {
+  grid-template-columns: 40px minmax(0, 1fr) auto 34px;
+  gap: 10px;
+  margin-top: 8px;
+  padding-bottom: 12px;
+}
+
+.publicCaseHero .iconButton {
+  width: 34px;
+  min-height: 34px;
+  border-radius: 7px;
+  font-size: 20px;
+}
+
+.publicCaseTitle h1 {
+  margin: 5px 0;
+  font-size: clamp(20px, 1.7vw, 28px);
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.publicDetailGrid {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  padding: 12px 0 14px;
+}
+
+.publicPersonGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.publicPersonCard {
+  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 8px 10px;
+  padding: 9px;
+}
+
+.publicPersonCard img,
+.publicPersonCard .personInitials {
+  width: 52px;
+  height: 52px;
+  border-radius: 7px;
+  grid-row: 1 / 3;
+}
+
+.publicPersonCard small,
+.publicPersonCard em {
+  grid-column: 2;
+}
+
+.publicPersonCard p {
+  min-height: 0;
+}
+
+.publicMediaStrip {
+  gap: 8px;
+}
+
+.publicMediaCard {
+  min-height: 138px;
+  grid-template-rows: 88px auto auto;
+}
+
+.publicMediaCard img {
+  height: 88px;
+  border-radius: 6px;
+}
+
+.feedTitleRow h1,
+.infoPage h1 {
+  font-size: 26px;
+  font-weight: 750;
+}
+
+@media (max-width: 960px) {
+  .signalHeader {
+    padding: max(10px, env(safe-area-inset-top)) 18px 10px;
+  }
+
+  .signalBrand {
+    font-size: 22px;
+  }
+
+  .signalFilters {
+    top: 140px;
+    gap: 6px;
+  }
+
+  .signalChip {
+    min-height: 34px;
+  }
+
+  .signalShell .mapCanvas,
+  .signalShell .fallbackMap {
+    top: 136px;
+  }
+
+  .mapLoading {
+    inset: 136px 0 76px 0;
+  }
+
+  .primaryFab {
+    min-height: 42px;
+  }
+
+  .bottomNav {
+    min-height: 68px;
+  }
+
+  .bottomNav a,
+  .bottomNav button {
+    min-height: 58px;
+    font-weight: 650;
+  }
+
+  .publicCaseDrawer {
+    top: 124px;
+    bottom: 68px;
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  .publicDetailGrid,
+  .detailPrimaryActions,
+  .eventGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .caseSummary div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .caseSummary dd {
+    text-align: left;
+  }
+
+  .publicCaseTitle h1 {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 620px) {
+  .publicPersonGrid,
+  .personGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -14,6 +14,8 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   invalid_location: "La ubicación no es válida.",
   location_required: "Marca un punto del mapa o indica que no tienes punto exacto.",
   outside_allowed_area: "El punto está fuera de las zonas activas.",
+  person_required: "Agrega al menos nombre, piso o detalle público de la persona.",
+  too_many_people: "Este reporte ya llegó al máximo de personas vinculadas.",
   rate_limited: "Hay demasiados intentos desde esta conexión o dispositivo. Espera unos minutos."
 };
 

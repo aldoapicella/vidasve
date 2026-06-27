@@ -1,23 +1,28 @@
-import { useState } from "react";
-import type { EventType, PublicEvent, PublicReport } from "../types";
+import { useState, type FormEvent } from "react";
+import type { EventType, PersonStatus, PublicEvent, PublicPerson, PublicReport } from "../types";
 
 export function ReportDetailDrawer({
   report,
   events,
   ownerToken,
   onClose,
-  onEvent
+  onEvent,
+  onAddPerson
 }: {
   report: PublicReport;
   events: PublicEvent[];
   ownerToken?: string;
   onClose: () => void;
   onEvent: (type: EventType, message: string, reason?: string) => Promise<void>;
+  onAddPerson: (person: PublicPerson) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<EventType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [personBusy, setPersonBusy] = useState(false);
+  const [personError, setPersonError] = useState<string | null>(null);
   const people = report.persons ?? [];
   const primaryPerson = people[0];
   const mediaEvents = events.filter((event) => event.thumbnailUrl);
@@ -73,6 +78,19 @@ export function ReportDetailDrawer({
     void submit("risk_update", reason, reason);
   }
 
+  async function submitPerson(person: PublicPerson) {
+    setPersonBusy(true);
+    setPersonError(null);
+    try {
+      await onAddPerson(person);
+      setAddPersonOpen(false);
+    } catch (err) {
+      setPersonError(err instanceof Error ? err.message : "No se pudo agregar la persona.");
+    } finally {
+      setPersonBusy(false);
+    }
+  }
+
   return (
     <aside className="detailDrawer publicCaseDrawer" aria-label={`Reporte ${report.code}`}>
       <button className="backPanel" type="button" onClick={onClose}>Volver al mapa</button>
@@ -118,12 +136,12 @@ export function ReportDetailDrawer({
         </div>
       ) : null}
 
-      {people.length ? (
-        <section className="caseSection">
-          <div className="sectionTitleRow">
-            <h2>Personas reportadas</h2>
-            <span>{people.length} vinculada{people.length === 1 ? "" : "s"}</span>
-          </div>
+      <section className="caseSection">
+        <div className="sectionTitleRow">
+          <h2>Personas reportadas</h2>
+          <button className="ghost" type="button" onClick={() => setAddPersonOpen(true)}>Agregar persona</button>
+        </div>
+        {people.length ? (
           <div className="publicPersonGrid">
             {people.map((person) => (
               <PersonTile
@@ -135,8 +153,10 @@ export function ReportDetailDrawer({
               />
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="emptyHint">Todavía no hay personas vinculadas a este edificio.</p>
+        )}
+      </section>
 
       <section className="caseSection">
         <div className="sectionTitleRow">
@@ -229,7 +249,103 @@ export function ReportDetailDrawer({
           ))}
         </ol>
       </section>
+      {addPersonOpen ? (
+        <AddPersonModal
+          busy={personBusy}
+          error={personError}
+          onClose={() => setAddPersonOpen(false)}
+          onSubmit={(person) => void submitPerson(person)}
+        />
+      ) : null}
     </aside>
+  );
+}
+
+function AddPersonModal({
+  busy,
+  error,
+  onClose,
+  onSubmit
+}: {
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (person: PublicPerson) => void;
+}) {
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const displayName = String(form.get("displayName") ?? "").trim();
+    const lastKnownPlace = String(form.get("lastKnownPlace") ?? "").trim();
+    const description = String(form.get("description") ?? "").trim();
+    if (!displayName && !lastKnownPlace && !description) {
+      setLocalError("Agrega al menos nombre, piso o detalle público.");
+      return;
+    }
+    const age = Number(form.get("age"));
+    onSubmit({
+      id: crypto.randomUUID(),
+      displayName: displayName || "Persona sin identificar",
+      ...(Number.isInteger(age) && age >= 0 && age <= 120 ? { age } : {}),
+      status: String(form.get("status") ?? "needs_verification") as PersonStatus,
+      lastKnownPlace,
+      lastContactText: String(form.get("lastContactText") ?? "").trim(),
+      description
+    });
+  }
+
+  return (
+    <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="add-person-title">
+      <form className="modal reportForm compactModal" onSubmit={submit}>
+        <header>
+          <h1 id="add-person-title">Agregar persona</h1>
+          <button className="iconButton" type="button" aria-label="Cerrar" onClick={onClose}>
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </header>
+        <div className="inlineFields">
+          <label>
+            Nombre público
+            <input name="displayName" maxLength={120} />
+          </label>
+          <label>
+            Edad
+            <input name="age" inputMode="numeric" maxLength={3} />
+          </label>
+        </div>
+        <div className="inlineFields">
+          <label>
+            Estado
+            <select name="status" defaultValue="needs_verification">
+              <option value="needs_verification">Necesita verificación</option>
+              <option value="trapped">Posiblemente atrapada</option>
+              <option value="signals_of_life">Con señales de vida</option>
+              <option value="missing">No localizada</option>
+              <option value="found">Encontrada</option>
+            </select>
+          </label>
+          <label>
+            Piso/apto o último lugar
+            <input name="lastKnownPlace" maxLength={160} />
+          </label>
+        </div>
+        <label>
+          Último contacto
+          <input name="lastContactText" maxLength={160} />
+        </label>
+        <label>
+          Detalle público
+          <input name="description" maxLength={240} />
+        </label>
+        {localError || error ? <p className="formError" role="alert">{localError || error}</p> : null}
+        <div className="actions">
+          <button type="submit" disabled={busy}>{busy ? "Agregando..." : "Agregar persona"}</button>
+          <button className="ghost" type="button" onClick={onClose}>Cancelar</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -349,6 +465,7 @@ function eventTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     create_report: "Reporte creado",
     add_info: "Nueva información",
+    add_person: "Persona agregada",
     nearby_help: "Ayuda cercana",
     duplicate_claim: "Posible duplicado",
     resolution_claim: "Posible resolución",

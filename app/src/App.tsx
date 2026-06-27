@@ -4,7 +4,7 @@ import { CreateReportModal, type CreatedReport } from "./components/CreateReport
 import { MapView } from "./components/MapView";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
-import type { PublicConfig, PublicEvent, PublicPost, PublicPostType, PublicReport, PublicSearchResponse } from "./types";
+import type { PublicConfig, PublicEvent, PublicPerson, PublicPost, PublicPostType, PublicReport, PublicSearchResponse } from "./types";
 
 const DEFAULT_AFFECTED_ZONES: PublicConfig["allowedBboxes"] = [
   { name: "Caracas", minLng: -67.24, minLat: 10.34, maxLng: -66.72, maxLat: 10.62 },
@@ -305,6 +305,14 @@ export function App() {
   useEffect(() => {
     const match = location.pathname.match(/^\/(?:r|caso)\/([^/]+)/);
     if (!match) return;
+    if (DEMO_MODE) {
+      const report = DEMO_REPORTS.find((item) => item.code === decodeURIComponent(match[1]).toUpperCase());
+      if (report) {
+        setSelected(report);
+        setEvents(demoEvents(report));
+      }
+      return;
+    }
     getReport(match[1])
       .then((data) => {
         setSelected(data.report);
@@ -379,6 +387,11 @@ export function App() {
 
   async function selectReport(report: PublicReport) {
     setSelected(report);
+    if (DEMO_MODE) {
+      setEvents(demoEvents(report));
+      history.replaceState(null, "", `/caso/${report.code}`);
+      return;
+    }
     try {
       const data = await getReport(report.code);
       setSelected(data.report);
@@ -392,6 +405,22 @@ export function App() {
   async function sendEvent(type: Parameters<typeof createEvent>[1], message: string, reason?: string) {
     if (!selected) return;
     const response = await createEvent(selected.code, type, { message, reason }, selectedOwnerToken);
+    setSelected(response.report);
+    setEvents((current) => [...current, response.event]);
+  }
+
+  async function addPerson(person: PublicPerson) {
+    if (!selected) return;
+    if (DEMO_MODE) {
+      setSelected(addPersonToLocalReport(selected, person));
+      setEvents((current) => [...current, demoEvent(selected, "add_person", `Persona agregada: ${person.displayName}`, person.id)]);
+      showToast("Persona agregada en demo.");
+      return;
+    }
+    const response = await createEvent(selected.code, "add_person", {
+      person,
+      message: `Persona agregada: ${person.displayName}`
+    });
     setSelected(response.report);
     setEvents((current) => [...current, response.event]);
   }
@@ -560,7 +589,7 @@ export function App() {
         />
       ) : null}
       {DEMO_MODE ? <MapControls /> : null}
-      {DEMO_MODE ? <DemoPins onOpenCase={() => setSelected(null)} /> : null}
+      {DEMO_MODE ? <DemoPins onOpenCase={() => void selectReport(DEMO_REPORTS[0])} /> : null}
       {configReady ? <MapStatus zoneNames={zoneNames || "Caracas, La Guaira"} /> : null}
       {configReady && !DEMO_MODE && !selected && !pickedLocation ? <MapEmptyState reports={visibleReports} searchTerm={searchTerm} /> : null}
 
@@ -640,6 +669,7 @@ export function App() {
           ownerToken={selectedOwnerToken}
           onClose={closeDetail}
           onEvent={(type, message, reason) => sendEvent(type, message, reason)}
+          onAddPerson={addPerson}
         />
       ) : personRoute ? (
         <PersonProfileDrawer match={personRoute} onClose={closeDetail} />
@@ -710,6 +740,47 @@ function HelpContacts({ groups }: { groups: HelpContactGroup[] }) {
 
 function formatLocation([lng, lat]: [number, number]): string {
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function addPersonToLocalReport(report: PublicReport, person: PublicPerson): PublicReport {
+  const persons = [...(report.persons ?? []), person];
+  return {
+    ...report,
+    peopleCount: countFromPersons(persons.length, report.peopleCount),
+    persons,
+    personDescriptionPublic: persons
+      .map((item) => [item.displayName, item.age ? `${item.age} años` : undefined, item.lastKnownPlace || item.floorOrUnit].filter(Boolean).join(", "))
+      .join("; ")
+      .slice(0, 240),
+    lastContactText: report.lastContactText || person.lastContactText,
+    signsOfLife: report.signsOfLife || person.status === "signals_of_life",
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function countFromPersons(personCount: number, fallback: string): string {
+  if (personCount === 1) return "1";
+  if (personCount >= 2 && personCount <= 5) return "2-5";
+  if (personCount > 5) return "more_than_5";
+  return fallback;
+}
+
+function demoEvents(report: PublicReport): PublicEvent[] {
+  return DEMO_UPDATES.map((message, index) => demoEvent(report, "add_info", message, undefined, index));
+}
+
+function demoEvent(report: PublicReport, type: PublicEvent["type"], message: string, personId?: string, index = 0): PublicEvent {
+  return {
+    id: `demo-event-${report.code}-${type}-${Date.now()}-${index}`,
+    reportId: report.id,
+    reportCode: report.code,
+    type,
+    message,
+    personId,
+    public: true,
+    abuseScore: 0,
+    createdAt: new Date(Date.now() - index * 60 * 60 * 1000).toISOString()
+  };
 }
 
 function CreatedReportDialog({ created, onClose }: { created: CreatedReport; onClose: () => void }) {

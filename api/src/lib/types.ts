@@ -7,6 +7,7 @@ export type ReportType =
 export type EventType =
   | "create_report"
   | "add_info"
+  | "add_person"
   | "nearby_help"
   | "duplicate_claim"
   | "resolution_claim"
@@ -23,6 +24,7 @@ export type EventType =
 export type PublicAction =
   | "create_report"
   | "add_info"
+  | "add_person"
   | "nearby_help"
   | "duplicate_claim"
   | "resolution_claim"

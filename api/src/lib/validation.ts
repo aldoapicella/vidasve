@@ -14,6 +14,7 @@ const PERSON_STATUSES = new Set<PersonStatus>(["trapped", "missing", "signals_of
 const POST_TYPES = new Set<PublicPostType>(["story", "photo", "flyer", "screenshot", "pdf", "update"]);
 const PUBLIC_EVENT_TYPES = new Set<EventType>([
   "add_info",
+  "add_person",
   "nearby_help",
   "duplicate_claim",
   "resolution_claim",
@@ -76,32 +77,40 @@ function parsePersons(value: unknown): PublicPerson[] {
   if (!Array.isArray(value)) return [];
   return value
     .slice(0, 12)
-    .map((item): PublicPerson | undefined => {
-      const record = asRecord(item);
-      const displayName = sanitizeText(record.displayName, 120);
-      const description = sanitizeText(record.description, 240);
-      const lastKnownPlace = sanitizeText(record.lastKnownPlace, 160);
-      const status = PERSON_STATUSES.has(record.status as PersonStatus)
-        ? (record.status as PersonStatus)
-        : "needs_verification";
-      if (!displayName && !description && !lastKnownPlace) return undefined;
-      const age = parseAge(record.age);
-      return {
-        id: sanitizeText(record.id, 80) || randomUUID(),
-        displayName: displayName || "Persona sin identificar",
-        ...(age === undefined ? {} : { age }),
-        photoUrl: sanitizeText(record.photoUrl, 500),
-        description,
-        lastContactText: sanitizeText(record.lastContactText, 160),
-        lastKnownPlace,
-        floorOrUnit: sanitizeText(record.floorOrUnit, 80),
-        status,
-        publicContactName: sanitizeText(record.publicContactName, 100),
-        publicContactPhone: sanitizeText(record.publicContactPhone, 80),
-        publicContactRelationship: sanitizeText(record.publicContactRelationship, 80)
-      };
-    })
+    .map(parsePerson)
     .filter((person): person is PublicPerson => Boolean(person));
+}
+
+export function parsePerson(value: unknown): PublicPerson | undefined {
+  const record = asRecord(value);
+  const displayName = sanitizeText(record.displayName, 120);
+  const description = sanitizeText(record.description, 240);
+  const lastContactText = sanitizeText(record.lastContactText, 160);
+  const lastKnownPlace = sanitizeText(record.lastKnownPlace, 160);
+  const floorOrUnit = sanitizeText(record.floorOrUnit, 80);
+  const publicContactName = sanitizeText(record.publicContactName, 100);
+  const publicContactPhone = sanitizeText(record.publicContactPhone, 80);
+  const status = PERSON_STATUSES.has(record.status as PersonStatus)
+    ? (record.status as PersonStatus)
+    : "needs_verification";
+  if (!displayName && !description && !lastContactText && !lastKnownPlace && !floorOrUnit && !publicContactName && !publicContactPhone) {
+    return undefined;
+  }
+  const age = parseAge(record.age);
+  return {
+    id: sanitizeText(record.id, 80) || randomUUID(),
+    displayName: displayName || "Persona sin identificar",
+    ...(age === undefined ? {} : { age }),
+    photoUrl: sanitizeText(record.photoUrl, 500),
+    description,
+    lastContactText,
+    lastKnownPlace,
+    floorOrUnit,
+    status,
+    publicContactName,
+    publicContactPhone,
+    publicContactRelationship: sanitizeText(record.publicContactRelationship, 80)
+  };
 }
 
 function parseAge(value: unknown): number | undefined {
@@ -124,7 +133,15 @@ export function validateCreateReport(input: CreateReportInput): string | null {
   return null;
 }
 
-export function parsePublicEvent(body: unknown): { type: EventType; message: string; reason: string; contact?: string; deviceId?: string; challenge: CreateReportInput["challenge"] } {
+export function parsePublicEvent(body: unknown): {
+  type: EventType;
+  message: string;
+  reason: string;
+  contact?: string;
+  deviceId?: string;
+  person?: PublicPerson;
+  challenge: CreateReportInput["challenge"];
+} {
   const value = asRecord(body);
   const type = PUBLIC_EVENT_TYPES.has(value.type as EventType) ? (value.type as EventType) : "add_info";
   return {
@@ -133,6 +150,7 @@ export function parsePublicEvent(body: unknown): { type: EventType; message: str
     reason: sanitizeText(value.reason, 80),
     contact: sanitizeText(value.contact, 160),
     deviceId: sanitizeText(value.deviceId, 120),
+    person: type === "add_person" ? parsePerson(value.person) : undefined,
     challenge: value.challenge as CreateReportInput["challenge"]
   };
 }

@@ -4,7 +4,7 @@ import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
-import { makeEvent, recalculateReport } from "../lib/reportLogic.js";
+import { addPersonToReport, makeEvent, recalculateReport } from "../lib/reportLogic.js";
 import { publicEvent, publicReport } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import { parsePublicEvent } from "../lib/validation.js";
@@ -36,19 +36,26 @@ app.http("reportEvents", {
       geoCell: report.geoCell
     });
     if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
+    if (input.type === "add_person" && !input.person) return json(request, 400, { ok: false, error: "person_required" });
+    if (input.type === "add_person" && (report.persons?.length ?? 0) >= 12) {
+      return json(request, 400, { ok: false, error: "too_many_people" });
+    }
+
+    const nextReport = input.type === "add_person" && input.person ? addPersonToReport(report, input.person) : report;
 
     const event = makeEvent({
       reportId: report.id,
       reportCode: report.code,
       type: input.type,
-      message: input.message,
+      message: input.message || (input.person ? `Persona agregada: ${input.person.displayName}` : ""),
       reason: input.reason,
+      personId: input.person?.id,
       actor,
       now: new Date()
     });
     await store.addEvent(event);
     const events = await store.listEvents(report.id);
-    const updated = recalculateReport(report, events);
+    const updated = recalculateReport(nextReport, events);
     await store.updateReport(updated);
     return json(request, 201, { ok: true, report: publicReport(updated), event: publicEvent(event) });
   }

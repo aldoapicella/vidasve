@@ -6,6 +6,7 @@ export type ReportType =
 
 export type EventType =
   | "add_info"
+  | "add_person"
   | "nearby_help"
   | "duplicate_claim"
   | "resolution_claim"

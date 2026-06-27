@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { calculatePriority } from "./priority.js";
 import { deriveStatus } from "./deriveStatus.js";
 import { normalizeMessage, sanitizeText } from "./sanitize.js";
-import type { CreateReportInput, Report, ReportEvent } from "./types.js";
+import type { CreateReportInput, PublicPerson, Report, ReportEvent } from "./types.js";
 
 export function makeReport(input: CreateReportInput, values: {
   id: string;
@@ -73,6 +73,18 @@ export function recalculateReport(report: Report, events: ReportEvent[], now = n
   };
 }
 
+export function addPersonToReport(report: Report, person: PublicPerson): Report {
+  const persons = [...(report.persons ?? []), person];
+  return {
+    ...report,
+    peopleCount: countFromPersons(persons.length, report.peopleCount),
+    persons,
+    personDescriptionPublic: summarizePeople(persons),
+    lastContactText: report.lastContactText || person.lastContactText,
+    signsOfLife: report.signsOfLife || person.status === "signals_of_life"
+  };
+}
+
 export function makeEvent(values: Omit<ReportEvent, "id" | "createdAt" | "abuseScore" | "public"> & {
   abuseScore?: number;
   public?: boolean;
@@ -107,4 +119,18 @@ export function duplicateCodes(candidate: CreateReportInput, existing: Report[])
     })
     .map((report) => report.code)
     .slice(0, 5);
+}
+
+function summarizePeople(persons: PublicPerson[]): string {
+  return persons
+    .map((person) => [person.displayName, person.age ? `${person.age} años` : undefined, person.lastKnownPlace || person.floorOrUnit].filter(Boolean).join(", "))
+    .join("; ")
+    .slice(0, 240);
+}
+
+function countFromPersons(personCount: number, fallback: Report["peopleCount"]): Report["peopleCount"] {
+  if (personCount === 1) return "1";
+  if (personCount >= 2 && personCount <= 5) return "2-5";
+  if (personCount > 5) return "more_than_5";
+  return fallback;
 }

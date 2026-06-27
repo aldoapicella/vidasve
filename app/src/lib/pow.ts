@@ -3,6 +3,7 @@ import type { EventType } from "../types";
 export type PowAction =
   | "create_report"
   | "add_info"
+  | "add_person"
   | "nearby_help"
   | "duplicate_claim"
   | "resolution_claim"
