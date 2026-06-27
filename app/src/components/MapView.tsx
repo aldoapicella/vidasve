@@ -63,6 +63,13 @@ export function MapView({
       map.events.add("ready", () => {
         setMapReady(true);
         if (activeBounds) map.setCamera({ bounds: activeBounds, maxBounds: activeBounds, padding: 48, maxZoom: config.defaultZoom });
+        const clusterLayer = new atlas.layer.BubbleLayer(source, "clusters", {
+          filter: ["has", "point_count"],
+          color: "#0f172a",
+          radius: 22,
+          strokeColor: "#ffffff",
+          strokeWidth: 2
+        });
         const reportsLayer = new atlas.layer.BubbleLayer(source, "reports", {
           filter: ["!", ["has", "point_count"]],
           color: ["match", ["get", "priority"], "P1", "#b91c1c", "P2", "#b45309", "#155e75"],
@@ -74,13 +81,7 @@ export function MapView({
         reportsLayerRef.current = reportsLayer;
         map.sources.add(source);
         map.layers.add([
-          new atlas.layer.BubbleLayer(source, "clusters", {
-            filter: ["has", "point_count"],
-            color: "#0f172a",
-            radius: 22,
-            strokeColor: "#ffffff",
-            strokeWidth: 2
-          }),
+          clusterLayer,
           new atlas.layer.SymbolLayer(source, "cluster-count", {
             filter: ["has", "point_count"],
             textOptions: { textField: ["get", "point_count_abbreviated"], color: "#ffffff", size: 13 }
@@ -88,11 +89,22 @@ export function MapView({
           reportsLayer
         ]);
         map.events.add("moveend", () => onBoundsChange(bounds(map)));
+        map.events.add("click", clusterLayer, (event) => {
+          const shape = event.shapes?.[0];
+          const properties = shapeProperties(shape);
+          const clusterId = Number(properties?.cluster_id);
+          const center = pointCoordinates(shape) ?? (event.position ? [event.position[0], event.position[1]] as [number, number] : undefined);
+          if (!Number.isFinite(clusterId) || !center) return;
+          source.getClusterExpansionZoom(clusterId).then((zoom) => {
+            map.setCamera({ center, zoom: Math.min(zoom + 0.4, 18), type: "ease", duration: 280 });
+          }).catch(() => undefined);
+        });
         map.events.add("click", reportsLayer, (event) => {
           const report = reportFromShape(event.shapes?.[0]);
           if (report) onReportSelect(report);
         });
         map.events.add("click", (event) => {
+          if (event.shapes?.length) return;
           const position = event.position ? [event.position[0], event.position[1]] as [number, number] : undefined;
           if (position && pointInAllowedZones(position, config.allowedBboxes)) onMapClick(position);
         });
@@ -194,6 +206,25 @@ function MapLoading() {
 function reportFromShape(shape?: atlas.data.Feature<atlas.data.Geometry, PublicReport> | atlas.Shape): PublicReport | undefined {
   if (!shape) return undefined;
   return "getProperties" in shape ? (shape.getProperties() as PublicReport) : shape.properties;
+}
+
+function shapeProperties(shape?: atlas.data.Feature<atlas.data.Geometry, Record<string, unknown>> | atlas.Shape): Record<string, unknown> | undefined {
+  if (!shape) return undefined;
+  return "getProperties" in shape ? shape.getProperties() as Record<string, unknown> : shape.properties;
+}
+
+function pointCoordinates(shape?: atlas.data.Feature<atlas.data.Geometry, Record<string, unknown>> | atlas.Shape): [number, number] | undefined {
+  if (!shape) return undefined;
+  if ("getCoordinates" in shape) return asLngLat(shape.getCoordinates());
+  if (shape.geometry.type === "Point") return asLngLat(shape.geometry.coordinates);
+  return undefined;
+}
+
+function asLngLat(value: unknown): [number, number] | undefined {
+  if (!Array.isArray(value) || value.length < 2) return undefined;
+  const lng = Number(value[0]);
+  const lat = Number(value[1]);
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : undefined;
 }
 
 function bounds(map: atlas.Map): [number, number, number, number] | undefined {

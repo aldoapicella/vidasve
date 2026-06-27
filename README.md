@@ -203,7 +203,7 @@ Importar reportes reales verificados desde CSV:
 API_BASE_URL=https://<function-app>.azurewebsites.net/api npm run import:reports -- verified.csv
 ```
 
-Columnas útiles: `addressText,knownInfoPublic,type,lat,lng,peopleCount,personName,personAge,personStatus,lastKnownPlace,lastContactText,signsOfLife,riskFlags,sourceType,reporterContact`.
+Columnas útiles: `addressText,knownInfoPublic,type,lat,lng,peopleCount,personName,personAge,personStatus,lastKnownPlace,lastContactText,lastContactAt,signsOfLife,riskFlags,sourceType,reporterContact`.
 
 Pruebas incluidas:
 

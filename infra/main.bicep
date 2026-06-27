@@ -418,6 +418,21 @@ resource functionAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   }
 }
 
+resource functionAppCors 'Microsoft.Web/sites/config@2024-04-01' = {
+  parent: functionApp
+  name: 'web'
+  properties: {
+    cors: {
+      allowedOrigins: union(split(allowedOrigins, ','), [
+        'http://localhost:5173'
+        'http://127.0.0.1:5173'
+        'http://127.0.0.1:5176'
+      ])
+      supportCredentials: false
+    }
+  }
+}
+
 resource cosmosRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
   parent: cosmos
   name: guid(cosmos.id, functionApp.name, cosmosDataContributorRoleId)

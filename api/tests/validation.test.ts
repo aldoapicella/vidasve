@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseCreateReportInput } from "../src/lib/validation.js";
+import { parseCreateReportInput, validateCreateReport } from "../src/lib/validation.js";
 
 test("parseCreateReportInput sanitizes public people and clamps invalid age/status", () => {
   const input = parseCreateReportInput({
@@ -31,4 +31,22 @@ test("parseCreateReportInput sanitizes public people and clamps invalid age/stat
   assert.equal(input.persons[1].age, undefined);
   assert.equal(input.persons[1].status, "needs_verification");
   assert.equal(input.persons[1].description?.includes("<"), false);
+});
+
+test("validateCreateReport requires human verification text", () => {
+  const valid = parseCreateReportInput({
+    addressText: "Edificio",
+    knownInfoPublic: "Texto público",
+    locationUnknown: true,
+    captchaText: "VIDA"
+  });
+  const invalid = parseCreateReportInput({
+    addressText: "Edificio",
+    knownInfoPublic: "Texto público",
+    locationUnknown: true,
+    captchaText: "bot"
+  });
+
+  assert.equal(validateCreateReport(valid), null);
+  assert.equal(validateCreateReport(invalid), "captcha_failed");
 });

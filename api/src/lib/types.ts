@@ -203,6 +203,7 @@ export interface CreateReportInput {
   reporterContact?: string;
   publishContact?: boolean;
   deviceId?: string;
+  captchaText?: string;
   website?: string;
   company?: string;
   middleName?: string;

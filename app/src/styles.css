@@ -748,6 +748,24 @@ textarea {
   font-weight: 800;
 }
 
+.captchaField {
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 12px;
+  background: #eef2ff;
+}
+
+.captchaField input {
+  background: #ffffff;
+  text-transform: uppercase;
+}
+
+.captchaField small {
+  color: #4b5563;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 fieldset {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -860,6 +878,18 @@ label,
 .detailDrawer h2 {
   margin: 0 0 8px;
   font-size: 15px;
+}
+
+.detailDrawer header p,
+.detailDrawer header small {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.detailDrawer header small {
+  font-weight: 800;
 }
 
 .detailPeopleList {
@@ -1076,6 +1106,12 @@ label,
   color: var(--sv-text);
 }
 
+.signalShell .mapCanvas,
+.signalShell .fallbackMap {
+  bottom: 54px;
+  height: auto;
+}
+
 .signalShell .fabStack {
   bottom: 74px;
   z-index: 28;
@@ -1230,10 +1266,15 @@ svg {
   left: 24px;
   z-index: 22;
   display: flex;
-  gap: 10px;
+  gap: 6px;
   max-width: calc(100% - 48px);
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 6px;
+  border: 1px solid var(--sv-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
 }
 
 .detailOpen .signalFilters {
@@ -1254,18 +1295,19 @@ svg {
   white-space: nowrap;
   border: 1px solid #dbe2ea;
   border-radius: 999px;
-  padding: 0 13px;
-  background: rgba(255, 255, 255, 0.94);
+  padding: 0 12px;
+  background: transparent;
   color: #111827;
   text-decoration: none;
   font-weight: 800;
   font-size: 13px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .signalChip.active {
-  border-color: #c7d2fe;
-  background: #eef2ff;
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
 }
 
 .signalChip b {
@@ -1310,6 +1352,16 @@ svg {
 .signalChip.plain .chipIcon {
   color: #4b5563;
   background: transparent;
+}
+
+.signalChip.plain b {
+  background: #111827;
+}
+
+.signalChip.active b,
+.signalChip.active .chipIcon {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
 .mapControls {
@@ -1649,7 +1701,7 @@ svg {
 
 .primaryActions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 20px;
 }
@@ -1745,9 +1797,9 @@ svg {
   z-index: 26;
   min-height: 54px;
   display: grid;
-  grid-template-columns: 100px 100px 1fr 1fr auto;
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr) auto;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
   padding: 0 32px;
   border-top: 1px solid var(--sv-border);
   background: rgba(255, 255, 255, 0.96);
@@ -1764,7 +1816,16 @@ svg {
 }
 
 .signalFooter strong {
+  justify-self: end;
   color: #4b5563;
+  white-space: nowrap;
+}
+
+.signalFooter span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .searchOverlay {
@@ -2276,8 +2337,8 @@ svg {
     max-width: none;
   }
 
-  .mapCanvas,
-  .fallbackMap {
+  .signalShell .mapCanvas,
+  .signalShell .fallbackMap {
     top: 146px;
     bottom: 76px;
     height: auto;
@@ -2476,8 +2537,8 @@ svg {
     display: inline-flex;
   }
 
-  .mapCanvas,
-  .fallbackMap {
+  .signalShell .mapCanvas,
+  .signalShell .fallbackMap {
     bottom: 0;
   }
 

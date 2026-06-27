@@ -5,6 +5,17 @@ import { getDeviceId } from "../lib/deviceId";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 const SERVER_STATUSES = new Set(["new", "confirmed", "maybe_resolved", "resolved", "reopened"]);
+const API_ERROR_MESSAGES: Record<string, string> = {
+  address_required: "Indica una ubicación o referencia.",
+  captcha_failed: "Escribe VIDA en la verificación humana.",
+  description_required: "Describe qué ocurre con información pública y verificable.",
+  duplicate_challenge: "La verificación expiró. Intenta enviar de nuevo.",
+  invalid_challenge: "No se pudo validar la verificación automática. Intenta de nuevo.",
+  invalid_location: "La ubicación no es válida.",
+  location_required: "Marca un punto del mapa o indica que no tienes punto exacto.",
+  outside_allowed_area: "El punto está fuera de las zonas activas.",
+  rate_limited: "Hay demasiados intentos desde esta conexión o dispositivo. Espera unos minutos."
+};
 
 export async function getConfig(): Promise<PublicConfig> {
   return request<PublicConfig>("/config");
@@ -105,17 +116,21 @@ async function proof(action: PowAction): Promise<{ challenge: Challenge; solutio
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {};
-  if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  if (init.method && init.method !== "GET") headers["x-device-id"] = getDeviceId();
+  if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "text/plain";
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      ...headers,
-      ...(init.headers ?? {})
-    }
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        ...headers,
+        ...(init.headers ?? {})
+      }
+    });
+  } catch {
+    throw new Error("No se pudo conectar con la API. Revisa la conexión, CORS o la URL VITE_API_BASE_URL.");
+  }
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(body.error || `Request failed: ${response.status}`);
+  if (!response.ok) throw new Error((body.error && API_ERROR_MESSAGES[body.error]) || body.error || `Request failed: ${response.status}`);
   return body;
 }

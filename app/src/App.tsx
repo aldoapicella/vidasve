@@ -124,10 +124,11 @@ const DEMO_PINS = [
 
 const FILTER_CHIPS = [
   { label: "Todos", value: "all", tone: "plain" },
-  { label: "Señales de vida", value: "signals", tone: "red" },
+  { label: "Por localizar", value: "missing_last_seen", tone: "purple" },
+  { label: "Señales", value: "signals", tone: "red" },
   { label: "Atrapados", value: "trapped", tone: "orange" },
-  { label: "Voces/Golpes", value: "voices", tone: "yellow" },
-  { label: "P1", value: "P1", tone: "purple" }
+  { label: "P1", value: "P1", tone: "red" },
+  { label: "P2", value: "P2", tone: "orange" }
 ] as const;
 
 const INFO_PAGES = {
@@ -174,6 +175,7 @@ export function App() {
   const [feedPosts, setFeedPosts] = useState<PublicPost[]>([]);
   const [reportsTruncated, setReportsTruncated] = useState(false);
   const [reportsLimit, setReportsLimit] = useState(500);
+  const [reportsLoading, setReportsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(location.pathname === "/reportar");
   const [pickedLocation, setPickedLocation] = useState<[number, number] | undefined>();
   const [pickHint, setPickHint] = useState(false);
@@ -248,6 +250,7 @@ export function App() {
   }, []);
 
   const refreshReports = useCallback(async (bbox?: [number, number, number, number], filterOverride?: string) => {
+    setReportsLoading(true);
     try {
       const response = await listReports(bbox, filterOverride ?? filterRef.current);
       setReports(response.items);
@@ -256,6 +259,8 @@ export function App() {
       setError(null);
     } catch {
       setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
+    } finally {
+      setReportsLoading(false);
     }
   }, []);
 
@@ -363,6 +368,25 @@ export function App() {
     window.setTimeout(() => setToast(null), 4200);
   }
 
+  async function shareCaseLink(code: string) {
+    const url = `${window.location.origin}/caso/${code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Ficha ${code}`, url });
+        showToast("Ficha compartida.");
+        return;
+      } catch {
+        // Fall back to clipboard when the native share sheet is unavailable or cancelled.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Enlace de ficha copiado.");
+    } catch {
+      showToast("No se pudo compartir el enlace.");
+    }
+  }
+
   function beginReportFlow() {
     if (pickedLocation || !config.azureMapsClientId) {
       setCreateOpen(true);
@@ -413,8 +437,10 @@ export function App() {
           reports={visibleReports}
           posts={contentPosts}
           configReady={configReady}
+          loading={!configReady || reportsLoading}
           mediaUploadsEnabled={config.features.mediaUploads}
           onUpload={() => setUploadOpen(true)}
+          onShare={(code) => void shareCaseLink(code)}
         />
         <BottomNav active="feed" onReport={() => setCreateOpen(true)} />
         {createOpen ? (
@@ -484,11 +510,6 @@ export function App() {
           {!pickedLocation ? (
             <button className="primaryFab" type="button" onClick={beginReportFlow}>
               {pickHint ? "Toca un punto del mapa" : "Reportar emergencia"}
-            </button>
-          ) : null}
-          {selected ? (
-            <button className="secondaryFab" type="button" onClick={() => void sendEvent("nearby_help", "Estoy cerca o llevando ayuda.")}>
-              Estoy cerca
             </button>
           ) : null}
         </div>
@@ -561,12 +582,8 @@ export function App() {
         <CasePreviewPanel
           onUpload={() => setUploadOpen(true)}
           onReport={() => setCreateOpen(true)}
-          onNearby={() => showToast("Pista recibida: tu disponibilidad queda registrada para revisión comunitaria.")}
           onLifeSignal={() => showToast("Señal de vida creada: se agrega como pista pública independiente, sin cerrar el caso.")}
-          onShare={() => {
-            void navigator.clipboard?.writeText(`${window.location.origin}/caso/${DEMO_CASE.code}`).catch(() => undefined);
-            showToast("Enlace de ficha listo para compartir.");
-          }}
+          onShare={() => void shareCaseLink(DEMO_CASE.code)}
           onAbuse={() => showToast("Denuncia recibida: el reporte se mantiene visible mientras se revisan señales independientes.")}
         />
       ) : null}
@@ -710,9 +727,13 @@ function FilterChips({
   reports: PublicReport[];
   onChange: (value: string) => void;
 }) {
+  const chips = FILTER_CHIPS
+    .map((chip) => ({ ...chip, count: applyReportFilter(reports, chip.value).length }))
+    .filter((chip) => chip.value === "all" || chip.count > 0 || chip.value === value);
+
   return (
     <div className="signalFilters" aria-label="Filtros del mapa">
-      {FILTER_CHIPS.map(({ label, value: filterValue, tone }) => (
+      {chips.map(({ label, value: filterValue, tone, count }) => (
         <button
           key={filterValue}
           className={`signalChip ${tone} ${value === filterValue ? "active" : ""}`}
@@ -722,7 +743,7 @@ function FilterChips({
         >
           <span className="chipIcon" aria-hidden="true"><MiniIcon tone={tone} /></span>
           <span>{label}</span>
-          <b>{applyReportFilter(reports, filterValue).length}</b>
+          <b>{count}</b>
         </button>
       ))}
       <a className="signalChip plain" href="/feed"><span className="chipIcon" aria-hidden="true"><LayerIcon /></span><span>Feed</span></a>
@@ -839,14 +860,12 @@ function MapEmptyState({ reports, searchTerm }: { reports: PublicReport[]; searc
 function CasePreviewPanel({
   onUpload,
   onReport,
-  onNearby,
   onLifeSignal,
   onShare,
   onAbuse
 }: {
   onUpload: () => void;
   onReport: () => void;
-  onNearby: () => void;
   onLifeSignal: () => void;
   onShare: () => void;
   onAbuse: () => void;
@@ -883,7 +902,6 @@ function CasePreviewPanel({
         </div>
       </section>
       <div className="primaryActions">
-        <button className="redAction" type="button" onClick={onNearby}>Estoy cerca</button>
         <button className="greenAction" type="button" onClick={onLifeSignal}>Hay señales de vida</button>
         <button className="outlineAction" type="button" onClick={onShare}>Compartir ficha</button>
         <button className="dangerLinkAction" type="button" onClick={onAbuse}>Reportar abuso / información falsa</button>
@@ -939,14 +957,18 @@ function PublicFeed({
   reports,
   posts,
   configReady,
+  loading,
   mediaUploadsEnabled,
-  onUpload
+  onUpload,
+  onShare
 }: {
   reports: PublicReport[];
   posts: PublicPost[];
   configReady: boolean;
+  loading: boolean;
   mediaUploadsEnabled: boolean;
   onUpload: () => void;
+  onShare: (code: string) => void;
 }) {
   const signalCount = reports.filter((report) => report.signsOfLife).length;
   const urgentCount = reports.filter((report) => report.priority === "P1").length;
@@ -985,8 +1007,17 @@ function PublicFeed({
         </div>
         <span className="riskBadge">{urgentCount} activos</span>
       </article>
-      {posts.length ? posts.map((post) => <FeedPost key={post.id} post={post} />) : reports.length ? reports.map((report) => <ReportFeedPost key={report.code} report={report} />) : <FeedEmptyState />}
+      {loading ? <FeedLoadingState /> : posts.length ? posts.map((post) => <FeedPost key={post.id} post={post} onShare={onShare} />) : reports.length ? reports.map((report) => <ReportFeedPost key={report.code} report={report} onShare={onShare} />) : <FeedEmptyState />}
     </section>
+  );
+}
+
+function FeedLoadingState() {
+  return (
+    <article className="feedEmptyState" aria-live="polite">
+      <strong>Cargando publicaciones...</strong>
+      <p>Buscando reportes públicos dentro de las zonas activas.</p>
+    </article>
   );
 }
 
@@ -999,7 +1030,7 @@ function FeedEmptyState() {
   );
 }
 
-function FeedPost({ post }: { post: PublicPost }) {
+function FeedPost({ post, onShare }: { post: PublicPost; onShare: (code: string) => void }) {
   return (
     <article className="feedPost">
       <article className="flyerCard reportBadge">
@@ -1025,14 +1056,14 @@ function FeedPost({ post }: { post: PublicPost }) {
         </div>
         <footer>
           <a className="feedAction" href={`/caso/${post.report.code}`}>Abrir ficha</a>
-          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/caso/${post.report.code}`)}>Compartir</button>
+          <button type="button" onClick={() => onShare(post.report.code)}>Compartir</button>
         </footer>
       </div>
     </article>
   );
 }
 
-function ReportFeedPost({ report }: { report: PublicReport }) {
+function ReportFeedPost({ report, onShare }: { report: PublicReport; onShare: (code: string) => void }) {
   const firstPerson = report.persons?.[0];
   return (
     <article className="feedPost">
@@ -1061,7 +1092,7 @@ function ReportFeedPost({ report }: { report: PublicReport }) {
         </div>
         <footer>
           <a className="feedAction" href={`/caso/${report.code}`}>Abrir ficha</a>
-          <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/caso/${report.code}`)}>Compartir</button>
+          <button type="button" onClick={() => onShare(report.code)}>Compartir</button>
         </footer>
       </div>
     </article>
@@ -1236,6 +1267,7 @@ function AvatarStack() {
 }
 
 function applyReportFilter(reports: PublicReport[], filter: string): PublicReport[] {
+  if (filter === "missing_last_seen") return reports.filter((report) => report.type === "missing_last_seen");
   if (filter === "signals") return reports.filter((report) => report.signsOfLife);
   if (filter === "trapped") return reports.filter((report) => report.type === "trapped_person" || report.type === "collapsed_building_unknown");
   if (filter === "voices") return reports.filter((report) => report.type === "voices_or_hits");
@@ -1387,7 +1419,7 @@ function postLabel(type: PublicPostType): string {
     flyer: "Flyer",
     screenshot: "Captura",
     pdf: "PDF",
-    update: "Actualizacion"
+    update: "Actualización"
   };
   return labels[type];
 }

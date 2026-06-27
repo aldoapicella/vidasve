@@ -68,6 +68,7 @@ export interface PublicReport {
   persons?: PublicPerson[];
   personDescriptionPublic?: string;
   lastContactText?: string;
+  lastContactAt?: string;
   knownInfoPublic: string;
   signsOfLife: boolean;
   riskFlags: string[];

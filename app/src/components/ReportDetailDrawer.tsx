@@ -18,6 +18,7 @@ export function ReportDetailDrawer({
   const [busy, setBusy] = useState<EventType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const primaryPerson = report.persons?.[0];
 
   async function submit(type: EventType, fallback: string, reason?: string) {
     setBusy(type);
@@ -33,17 +34,26 @@ export function ReportDetailDrawer({
   }
 
   async function shareReport() {
-    try {
-      if (navigator.share) {
+    if (navigator.share) {
+      try {
         await navigator.share({ title: report.code, url: location.href });
+        confirmShared();
         return;
+      } catch {
+        // Fall back to clipboard when the native share sheet is unavailable or cancelled.
       }
+    }
+    try {
       await navigator.clipboard.writeText(location.href);
-      setShareCopied(true);
-      window.setTimeout(() => setShareCopied(false), 2000);
+      confirmShared();
     } catch {
       setError("No se pudo compartir el enlace.");
     }
+  }
+
+  function confirmShared() {
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 2000);
   }
 
   function reportAbuse() {
@@ -63,8 +73,9 @@ export function ReportDetailDrawer({
       <header>
         <div>
           <span className={`priority ${report.priority.toLowerCase()}`}>{report.priority}</span>
-          <h1>{labelForType(report.type)}</h1>
-          <p>Código: {report.code}</p>
+          <h1>{primaryPerson?.displayName ?? labelForType(report.type)}</h1>
+          <p>{primaryPerson ? `${personStatusLabel(primaryPerson.status)} · ${labelForType(report.type)}` : labelForType(report.type)}</p>
+          <small>Código: {report.code}</small>
         </div>
         <button className="iconButton" type="button" aria-label="Cerrar detalle" onClick={onClose}>
           <span aria-hidden="true">&times;</span>
@@ -126,9 +137,6 @@ export function ReportDetailDrawer({
         <div className="eventGrid">
           <button type="button" disabled={busy !== null} onClick={() => void submit("add_info", "Tengo información nueva.")}>
             Tengo información
-          </button>
-          <button type="button" disabled={busy !== null} onClick={() => void submit("nearby_help", "Estoy cerca o llevando ayuda.")}>
-            Estoy cerca
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("new_signs_of_life", "Hay señales de vida nuevas.")}>
             Hay señales de vida ahora

@@ -90,11 +90,13 @@ export function CreateReportModal({
     const form = new FormData(event.currentTarget);
     const publicPersons = persons.map(personToPayload).filter(Boolean) as PublicPerson[];
     const peopleCount = countFromPersons(publicPersons.length, String(form.get("peopleCount") ?? "unknown"));
+    const lastContactAt = String(form.get("lastContactAt") ?? "");
     try {
       const result = await createReport({
         website: form.get("website"),
         company: form.get("company"),
         middleName: form.get("middleName"),
+        captchaText: form.get("captchaText"),
         location: locationUnknown || !location ? undefined : { type: "Point", coordinates: location },
         locationUnknown,
         locationAccuracy: locationUnknown ? "zone_only" : "approximate",
@@ -104,7 +106,8 @@ export function CreateReportModal({
         peopleCount,
         persons: publicPersons,
         personDescriptionPublic: summarizePeople(publicPersons),
-        lastContactText: publicPersons.find((person) => person.lastContactText)?.lastContactText ?? form.get("lastContactText"),
+        lastContactText: publicPersons.find((person) => person.lastContactText)?.lastContactText ?? formatLastContact(lastContactAt),
+        lastContactAt,
         knownInfoPublic: form.get("knownInfoPublic"),
         signsOfLife: type === "voices_or_hits" || publicPersons.some((person) => person.status === "signals_of_life") || form.get("signsOfLife") === "on",
         riskFlags: form.getAll("riskFlags"),
@@ -222,6 +225,22 @@ export function CreateReportModal({
           ))}
         </div>
 
+        <div className="inlineFields">
+          <label>
+            Personas estimadas
+            <select name="peopleCount" defaultValue="unknown">
+              <option value="1">1</option>
+              <option value="2-5">2-5</option>
+              <option value="more_than_5">Más de 5</option>
+              <option value="unknown">No se sabe</option>
+            </select>
+          </label>
+          <label>
+            Último contacto general
+            <input name="lastContactAt" type="datetime-local" />
+          </label>
+        </div>
+
         <section className="peopleEditor" aria-label="Personas relacionadas">
           <div className="sectionHeader">
             <div>
@@ -290,7 +309,7 @@ export function CreateReportModal({
         </section>
 
         <details className="optionalDetails">
-          <summary>Prioridad, riesgos y contacto privado</summary>
+          <summary>Riesgos y contacto privado</summary>
           <label className="lifeToggle">
             <input name="signsOfLife" type="checkbox" />
             <span>
@@ -298,21 +317,6 @@ export function CreateReportModal({
               <small>Sube la prioridad del reporte.</small>
             </span>
           </label>
-          <div className="inlineFields">
-            <label>
-              Personas estimadas
-              <select name="peopleCount" defaultValue="unknown">
-                <option value="1">1</option>
-                <option value="2-5">2-5</option>
-                <option value="more_than_5">Más de 5</option>
-                <option value="unknown">No se sabe</option>
-              </select>
-            </label>
-            <label>
-              Último contacto general
-              <input name="lastContactText" maxLength={160} placeholder="Hoy 8:30 a.m., ayer en la noche..." />
-            </label>
-          </div>
           <label>
             Punto de referencia
             <input name="landmark" maxLength={120} placeholder="Panadería, escuela, esquina..." />
@@ -348,6 +352,12 @@ export function CreateReportModal({
           </label>
           <p className="helperText">El contacto privado del reportante no se publica.</p>
         </details>
+
+        <label className="captchaField">
+          Verificación humana
+          <input name="captchaText" required autoComplete="off" inputMode="text" pattern="[Vv][Ii][Dd][Aa]" placeholder="Escribe VIDA" />
+          <small>Escribe VIDA para confirmar que este reporte fue enviado por una persona.</small>
+        </label>
 
         {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="actions stickyActions">
@@ -418,6 +428,13 @@ function countFromPersons(personCount: number, fallback: string): string {
   if (personCount >= 2 && personCount <= 5) return "2-5";
   if (personCount > 5) return "more_than_5";
   return fallback;
+}
+
+function formatLastContact(value: string): string {
+  if (!value) return "";
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  return new Intl.DateTimeFormat("es-VE", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
 }
 
 function pointInAllowedZones([lng, lat]: [number, number], zones: PublicConfig["allowedBboxes"]): boolean {
