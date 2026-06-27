@@ -37,15 +37,18 @@ export async function listReports(
     if (filter.startsWith("P")) params.set("priority", filter);
     else if (SERVER_STATUSES.has(filter)) params.set("status", filter);
   }
-  return request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports?${params}`);
+  const response = await request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports?${params}`);
+  return { ...response, items: array(response.items).map(normalizeReport) };
 }
 
 export async function getReport(code: string): Promise<{ report: PublicReport; events: PublicEvent[] }> {
-  return request(`/reports/${code}`);
+  const response = await request<{ report: PublicReport; events: PublicEvent[] }>(`/reports/${code}`);
+  return { report: normalizeReport(response.report), events: array(response.events).map(normalizeEvent) };
 }
 
 export async function listPosts(): Promise<{ items: PublicPost[]; truncated: boolean; limit: number }> {
-  return request("/posts?limit=50");
+  const response = await request<{ items: PublicPost[]; truncated: boolean; limit: number }>("/posts?limit=50");
+  return { ...response, items: array(response.items).map(normalizePost) };
 }
 
 export async function searchPlaces(query: string): Promise<{ items: PlaceSuggestion[] }> {
@@ -55,7 +58,13 @@ export async function searchPlaces(query: string): Promise<{ items: PlaceSuggest
 
 export async function searchPublic(query: string): Promise<PublicSearchResponse> {
   const params = new URLSearchParams({ q: query });
-  return request(`/search?${params}`);
+  const response = await request<PublicSearchResponse>(`/search?${params}`);
+  return {
+    reports: array(response.reports).map(normalizeReport),
+    people: array(response.people),
+    posts: array(response.posts).map(normalizePost),
+    locations: array(response.locations)
+  };
 }
 
 export async function createReport(payload: Record<string, unknown>): Promise<{
@@ -67,22 +76,31 @@ export async function createReport(payload: Record<string, unknown>): Promise<{
   message: string;
 }> {
   const challenge = await proof("create_report");
-  return request("/reports", {
+  const response = await request<{
+    ok: boolean;
+    code: string;
+    publicUrl: string;
+    ownerEditUrl: string;
+    report: PublicReport;
+    message: string;
+  }>("/reports", {
     method: "POST",
     body: JSON.stringify({ ...payload, deviceId: getDeviceId(), challenge })
   });
+  return { ...response, report: normalizeReport(response.report) };
 }
 
 export async function createEvent(code: string, type: EventType, payload: Record<string, unknown>, ownerToken?: string) {
   const owner = type === "owner_resolved" || type === "owner_reopened";
   const challenge = await proof(owner ? "owner_event" : type);
-  return request<{ ok: boolean; report: PublicReport; event: PublicEvent }>(
+  const response = await request<{ ok: boolean; report: PublicReport; event: PublicEvent }>(
     `/reports/${code}/${owner ? "owner-events" : "events"}`,
     {
       method: "POST",
       body: JSON.stringify({ ...payload, type, ownerToken, deviceId: getDeviceId(), challenge })
     }
   );
+  return { ...response, report: normalizeReport(response.report), event: normalizeEvent(response.event) };
 }
 
 export async function createPost(code: string, payload: Record<string, unknown>) {
@@ -97,15 +115,17 @@ export async function createPost(code: string, payload: Record<string, unknown>)
     }
     body.append("challenge", JSON.stringify(challenge));
     body.append("file", file);
-    return request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
+    const response = await request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
       method: "POST",
       body
     });
+    return { ...response, post: normalizePost(response.post), report: normalizeReport(response.report) };
   }
-  return request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
+  const response = await request<{ ok: boolean; post: PublicPost; report: PublicReport }>(`/reports/${code}/posts`, {
     method: "POST",
     body: JSON.stringify({ ...payload, deviceId: getDeviceId(), challenge })
   });
+  return { ...response, post: normalizePost(response.post), report: normalizeReport(response.report) };
 }
 
 async function proof(action: PowAction): Promise<{ challenge: Challenge; solution: string }> {
@@ -135,4 +155,33 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) throw new Error((body.error && API_ERROR_MESSAGES[body.error]) || body.error || `Request failed: ${response.status}`);
   return body;
+}
+
+function normalizeReport(report: PublicReport): PublicReport {
+  const counters = report.counters ?? {};
+  return {
+    ...report,
+    persons: array(report.persons),
+    riskFlags: array(report.riskFlags),
+    possibleDuplicateCodes: array(report.possibleDuplicateCodes),
+    counters: {
+      updates: counters.updates ?? 0,
+      nearbyHelp: counters.nearbyHelp ?? 0,
+      resolutionClaims: counters.resolutionClaims ?? 0,
+      reopenClaims: counters.reopenClaims ?? 0,
+      abuseFlags: counters.abuseFlags ?? 0
+    }
+  };
+}
+
+function normalizeEvent(event: PublicEvent): PublicEvent {
+  return { ...event, tags: array(event.tags) };
+}
+
+function normalizePost(post: PublicPost): PublicPost {
+  return { ...post, tags: array(post.tags) };
+}
+
+function array<T>(value: T[] | undefined): T[] {
+  return Array.isArray(value) ? value : [];
 }
