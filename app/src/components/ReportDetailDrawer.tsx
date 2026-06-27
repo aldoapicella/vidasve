@@ -18,7 +18,12 @@ export function ReportDetailDrawer({
   const [busy, setBusy] = useState<EventType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
-  const primaryPerson = report.persons?.[0];
+  const people = report.persons ?? [];
+  const primaryPerson = people[0];
+  const mediaEvents = events.filter((event) => event.thumbnailUrl);
+  const publicPosts = events.filter((event) => event.type === "public_post");
+  const peopleCount = people.length || countFromReport(report.peopleCount);
+  const risk = riskLabel(report.priority);
 
   async function submit(type: EventType, fallback: string, reason?: string) {
     setBusy(type);
@@ -69,77 +74,110 @@ export function ReportDetailDrawer({
   }
 
   return (
-    <aside className="detailDrawer" aria-label={`Reporte ${report.code}`}>
-      <header>
-        <div>
-          <span className={`priority ${report.priority.toLowerCase()}`}>{report.priority}</span>
-          <h1>{primaryPerson?.displayName ?? labelForType(report.type)}</h1>
-          <p>{primaryPerson ? `${personStatusLabel(primaryPerson.status)} · ${labelForType(report.type)}` : labelForType(report.type)}</p>
-          <small>Código: {report.code}</small>
+    <aside className="detailDrawer publicCaseDrawer" aria-label={`Reporte ${report.code}`}>
+      <button className="backPanel" type="button" onClick={onClose}>Volver al mapa</button>
+
+      <header className="publicCaseHero">
+        <span className="detailBuildingIcon" aria-hidden="true"><BuildingGlyph /></span>
+        <div className="publicCaseTitle">
+          <span className="publicBadge">Ficha pública</span>
+          <h1>{report.addressText}</h1>
+          <p>{report.landmark ? `Referencia: ${report.landmark}` : report.knownInfoPublic}</p>
+          <small>{[report.area, report.city, `Código ${report.code}`].filter(Boolean).join(" · ")}</small>
         </div>
+        <span className={`riskBadge ${risk.className}`}>{risk.label}</span>
         <button className="iconButton" type="button" aria-label="Cerrar detalle" onClick={onClose}>
           <span aria-hidden="true">&times;</span>
         </button>
       </header>
 
-      <section>
-          <h2>Ubicación</h2>
-        <p>{report.addressText}</p>
-        <p>Precisión: {accuracyLabel(report.locationAccuracy)}</p>
-      </section>
+      <div className="publicDetailGrid">
+        <section className="peopleSummary">
+          <h2>{peopleCount || "Varias"} persona{peopleCount === 1 ? "" : "s"} reportada{peopleCount === 1 ? "" : "s"}</h2>
+          <p>{primaryPerson ? `${primaryPerson.displayName} · ${personStatusLabel(primaryPerson.status)}` : labelForType(report.type)}</p>
+          <small>{report.location ? `${formatCoordinate(report.location.coordinates[1])}, ${formatCoordinate(report.location.coordinates[0])}` : "Ubicación aproximada o por zona"} · Precisión {accuracyLabel(report.locationAccuracy).toLowerCase()}</small>
+        </section>
 
-      <section>
-        <h2>Información</h2>
-        <p>{report.knownInfoPublic}</p>
-        {report.lastContactText ? <p>Último contacto: {report.lastContactText}</p> : null}
-        <p>Estado: {statusLabel(report.derivedStatus)}</p>
-        {report.signsOfLife ? <p className="lifeSignal">Tiene señales de vida reportadas</p> : null}
-        {report.possibleDuplicateCodes?.length ? (
-          <p>Posibles duplicados: {report.possibleDuplicateCodes.join(", ")}</p>
-        ) : null}
-      </section>
+        <section className="caseSummary">
+          <h2>Resumen del reporte</h2>
+          <dl>
+            <div><dt>Urgencia</dt><dd>{risk.shortLabel}</dd></div>
+            <div><dt>Estado</dt><dd>{statusLabel(report.derivedStatus)}</dd></div>
+            <div><dt>Publicaciones</dt><dd>{publicPosts.length}</dd></div>
+            <div><dt>Actualizaciones</dt><dd>{events.length}</dd></div>
+            <div><dt>Última actualización</dt><dd>{formatEventTime(report.updatedAt)}</dd></div>
+          </dl>
+        </section>
+      </div>
 
-      {report.persons?.length ? (
-        <section>
-          <h2>Personas reportadas</h2>
-          <div className="detailPeopleList">
-            {report.persons.map((person) => (
-              <article key={person.id} className="detailPerson">
-                <div>
-                  <strong><a href={`/persona/${person.id}`}>{person.displayName}</a></strong>
-                  <span>{person.age ? `${person.age} años · ` : ""}{personStatusLabel(person.status)}</span>
-                </div>
-                {person.lastKnownPlace ? <p>{person.lastKnownPlace}</p> : null}
-                {person.description ? <p>{person.description}</p> : null}
-                {person.lastContactText ? <p>Último contacto: {person.lastContactText}</p> : null}
-                {person.publicContactName || person.publicContactPhone ? (
-                  <p className="publicContactLine">
-                    Contacto público: {[person.publicContactName, person.publicContactRelationship, person.publicContactPhone].filter(Boolean).join(" · ")}
-                  </p>
-                ) : null}
-              </article>
+      {report.riskFlags.length || report.signsOfLife || report.possibleDuplicateCodes?.length ? (
+        <div className="caseTags" aria-label="Etiquetas del reporte">
+          {report.signsOfLife ? <span className="greenTag">Señales de vida</span> : null}
+          {report.riskFlags.map((flag) => <span key={flag}>{flag}</span>)}
+          {report.possibleDuplicateCodes?.map((code) => <span key={code}>Posible duplicado {code}</span>)}
+        </div>
+      ) : null}
+
+      {people.length ? (
+        <section className="caseSection">
+          <div className="sectionTitleRow">
+            <h2>Personas reportadas</h2>
+            <span>{people.length} vinculada{people.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="publicPersonGrid">
+            {people.map((person) => (
+              <PersonTile
+                key={person.id}
+                person={person}
+                risk={risk}
+                imageUrl={imageForPerson(person.id, mediaEvents) ?? person.photoUrl}
+                fallbackImageUrl={people.length === 1 ? mediaEvents[0]?.thumbnailUrl : undefined}
+              />
             ))}
           </div>
         </section>
       ) : null}
 
-      <p className="safetyNote">
-        No entres a estructuras inestables. Ayuda confirmando ubicación, avisando a vecinos o llevando el reporte a personas con equipo.
-      </p>
+      <section className="caseSection">
+        <div className="sectionTitleRow">
+          <h2>Carteles y publicaciones de familiares</h2>
+          <span>{mediaEvents.length || publicPosts.length} publicación{mediaEvents.length + publicPosts.length === 1 ? "" : "es"}</span>
+        </div>
+        {mediaEvents.length ? (
+          <div className="publicMediaStrip">
+            {mediaEvents.slice(0, 8).map((event) => (
+              <a key={event.id} className="publicMediaCard" href={event.mediaUrl ?? event.thumbnailUrl} target="_blank" rel="noreferrer">
+                <img src={event.thumbnailUrl} alt={`Publicación pública ${report.code}`} />
+                <span>{eventTypeLabel(event.type)}</span>
+                <small>{formatEventTime(event.createdAt)}</small>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="emptyHint">Todavía no hay imágenes públicas cargadas para este reporte.</p>
+        )}
+      </section>
 
-      <section>
-        <h2>Actualizar</h2>
+      <div className="primaryActions detailPrimaryActions">
+        <button className="greenAction" type="button" disabled={busy !== null} onClick={() => void submit("new_signs_of_life", "Hay señales de vida nuevas.")}>
+          Hay señales de vida
+        </button>
+        <button className="outlineAction" type="button" disabled={busy !== null} onClick={() => void shareReport()}>
+          {shareCopied ? "Enlace copiado" : "Compartir ficha"}
+        </button>
+      </div>
+      <p className="communityGuard">Estas acciones crean señales públicas para revisión. Un tercero no puede cerrar ni ocultar el reporte con un solo clic.</p>
+
+      <section className="caseSection updateComposer">
+        <h2>Agregar información pública</h2>
         <label>
           Nueva información
-          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} maxLength={900} />
+          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} maxLength={900} placeholder="Qué viste, dónde, cuándo y cómo puede verificarse." />
         </label>
         {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="eventGrid">
           <button type="button" disabled={busy !== null} onClick={() => void submit("add_info", "Tengo información nueva.")}>
-            Tengo información
-          </button>
-          <button type="button" disabled={busy !== null} onClick={() => void submit("new_signs_of_life", "Hay señales de vida nuevas.")}>
-            Hay señales de vida ahora
+            Agregar información
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("duplicate_claim", "Puede ser duplicado.")}>
             Posible duplicado
@@ -152,9 +190,6 @@ export function ReportDetailDrawer({
           </button>
           <button type="button" disabled={busy !== null} onClick={() => void submit("reopen_claim", "Hay información nueva para reabrir.")}>
             Reabrir con información
-          </button>
-          <button type="button" disabled={busy !== null} onClick={() => void shareReport()}>
-            {shareCopied ? "Enlace copiado" : "Compartir"}
           </button>
           <button className="dangerAction" type="button" disabled={busy !== null} onClick={reportAbuse}>
             Abuso / información falsa
@@ -173,8 +208,12 @@ export function ReportDetailDrawer({
         ) : null}
       </section>
 
-      <section>
-        <h2>Historial público</h2>
+      <p className="safetyNote">
+        No entres a estructuras inestables. Ayuda confirmando ubicación, avisando a vecinos o llevando el reporte a personas con equipo.
+      </p>
+
+      <section className="caseSection">
+        <h2>Actualizaciones públicas</h2>
         <ol className="timeline">
           {events.map((event) => (
             <li key={event.id}>
@@ -185,12 +224,43 @@ export function ReportDetailDrawer({
                 </a>
               ) : null}
               <p>{event.message}</p>
-              <time>{new Date(event.createdAt).toLocaleString()}</time>
+              <time>{formatEventTime(event.createdAt)}</time>
             </li>
           ))}
         </ol>
       </section>
     </aside>
+  );
+}
+
+function PersonTile({
+  person,
+  risk,
+  imageUrl,
+  fallbackImageUrl
+}: {
+  person: NonNullable<PublicReport["persons"]>[number];
+  risk: ReturnType<typeof riskLabel>;
+  imageUrl?: string;
+  fallbackImageUrl?: string;
+}) {
+  const photo = imageUrl ?? fallbackImageUrl;
+  return (
+    <article className="publicPersonCard">
+      {photo ? (
+        <img src={photo} alt={`Imagen pública de ${person.displayName}`} />
+      ) : (
+        <span className="personInitials" aria-hidden="true">{initials(person.displayName)}</span>
+      )}
+      <div>
+        <strong><a href={`/persona/${person.id}`}>{person.displayName}</a></strong>
+        <span>{person.age ? `${person.age} años` : "Edad no indicada"}</span>
+        <p>{person.description || person.lastKnownPlace || personStatusLabel(person.status)}</p>
+      </div>
+      <small>Último contacto<br /><b>{person.lastContactText || "No indicado"}</b></small>
+      {person.lastKnownPlace ? <small>Ubicación<br /><b>{person.lastKnownPlace}</b></small> : null}
+      <em className={risk.className}>{risk.label}</em>
+    </article>
   );
 }
 
@@ -225,6 +295,54 @@ function accuracyLabel(accuracy: string): string {
     zone_only: "Solo zona"
   };
   return labels[accuracy] ?? accuracy;
+}
+
+function riskLabel(priority: PublicReport["priority"]): { label: string; shortLabel: string; className: string } {
+  if (priority === "P1") return { label: "ALTO RIESGO", shortLabel: "ALTO", className: "high" };
+  if (priority === "P2") return { label: "RIESGO MEDIO", shortLabel: "MEDIO", className: "medium" };
+  return { label: "NECESITA VERIFICACIÓN", shortLabel: "VERIFICAR", className: "low" };
+}
+
+function countFromReport(value: string): number {
+  const firstNumber = value.match(/\d+/)?.[0];
+  return firstNumber ? Number(firstNumber) : 0;
+}
+
+function imageForPerson(personId: string, events: PublicEvent[]): string | undefined {
+  return events.find((event) => event.personId === personId)?.thumbnailUrl;
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function formatCoordinate(value: number): string {
+  return value.toFixed(4);
+}
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function BuildingGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 21V4h14v17M9 8h1m4 0h1M9 12h1m4 0h1M9 16h1m4 0h1M3 21h18" />
+    </svg>
+  );
 }
 
 function eventTypeLabel(type: string): string {

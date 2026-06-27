@@ -125,11 +125,10 @@ const DEMO_PINS = [
 
 const FILTER_CHIPS = [
   { label: "Todos", value: "all", tone: "plain" },
-  { label: "Por localizar", value: "missing_last_seen", tone: "purple" },
-  { label: "Señales", value: "signals", tone: "red" },
+  { label: "Señales de vida", value: "signals", tone: "red" },
   { label: "Atrapados", value: "trapped", tone: "orange" },
-  { label: "P1", value: "P1", tone: "red" },
-  { label: "P2", value: "P2", tone: "orange" }
+  { label: "Voces/Golpes", value: "voices", tone: "yellow" },
+  { label: "Edificios", value: "buildings", tone: "purple" }
 ] as const;
 
 const INFO_PAGES = {
@@ -712,6 +711,12 @@ function SignalHeader({
         />
       </label>
       <nav className="headerLinks" aria-label="Accesos">
+        <a href="/tips-seguridad">Cómo funciona</a>
+        <a href="/aviso-legal">Centro de ayuda</a>
+        <button className="bellButton" type="button" aria-label="Alertas comunitarias">
+          <BellIcon />
+          <span>3</span>
+        </button>
         <a href="/feed">Feed público</a>
         <button className="reportButton" type="button" onClick={onReport}>Reportar <span aria-hidden="true">+</span></button>
       </nav>
@@ -729,8 +734,7 @@ function FilterChips({
   onChange: (value: string) => void;
 }) {
   const chips = FILTER_CHIPS
-    .map((chip) => ({ ...chip, count: applyReportFilter(reports, chip.value).length }))
-    .filter((chip) => chip.value === "all" || chip.count > 0 || chip.value === value);
+    .map((chip) => ({ ...chip, count: applyReportFilter(reports, chip.value).length }));
 
   return (
     <div className="signalFilters" aria-label="Filtros del mapa">
@@ -1034,10 +1038,16 @@ function FeedEmptyState() {
 function FeedPost({ post, onShare }: { post: PublicPost; onShare: (code: string) => void }) {
   return (
     <article className="feedPost">
-      <article className="flyerCard reportBadge">
-        <strong>{post.type.toUpperCase()}</strong>
-        <span>{post.report.code}</span>
-        <small>{post.report.priority}</small>
+      <article className={post.thumbnailUrl ? "flyerCard reportBadge imageBadge" : "flyerCard reportBadge"}>
+        {post.thumbnailUrl ? (
+          <img src={post.thumbnailUrl} alt={`Publicación ${post.report.code}`} />
+        ) : (
+          <>
+            <strong>{post.type.toUpperCase()}</strong>
+            <span>{post.report.code}</span>
+            <small>{post.report.priority}</small>
+          </>
+        )}
       </article>
       <div className="postBody">
         <header>
@@ -1249,7 +1259,8 @@ function AppFooter() {
       <a href="/privacidad">Privacidad</a>
       <a href="/tips-seguridad">Tips de seguridad</a>
       <span>Canales oficiales</span>
-      <strong>{APP_NAME} Venezuela</strong>
+      <span className="footerChannels" aria-label="Canales sociales">WA TG IG X</span>
+      <strong>12.842 voluntarios conectados</strong>
     </footer>
   );
 }
@@ -1272,6 +1283,7 @@ function applyReportFilter(reports: PublicReport[], filter: string): PublicRepor
   if (filter === "signals") return reports.filter((report) => report.signsOfLife);
   if (filter === "trapped") return reports.filter((report) => report.type === "trapped_person" || report.type === "collapsed_building_unknown");
   if (filter === "voices") return reports.filter((report) => report.type === "voices_or_hits");
+  if (filter === "buildings") return reports.filter((report) => report.type === "collapsed_building_unknown" || (report.persons?.length ?? 0) > 1);
   if (filter.startsWith("P")) return reports.filter((report) => report.priority === filter);
   if (filter !== "all") return reports.filter((report) => report.derivedStatus === filter);
   return reports;
