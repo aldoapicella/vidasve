@@ -403,7 +403,11 @@ export function App() {
         <section className="pickHint" role="status">
           <strong>Toca el punto exacto dentro de las zonas activas.</strong>
           <span>Luego confirma con "Reportar aqui".</span>
-          <button type="button" onClick={() => setCreateOpen(true)}>Reportar sin punto exacto</button>
+          <button type="button" onClick={() => {
+            setPickHint(false);
+            setToast(null);
+            setCreateOpen(true);
+          }}>Reportar sin punto exacto</button>
           <button className="ghost" type="button" onClick={() => setPickHint(false)}>Cancelar</button>
         </section>
       ) : null}
