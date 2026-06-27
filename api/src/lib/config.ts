@@ -4,6 +4,12 @@ export function env(name: string, fallback = ""): string {
   return process.env[name] || fallback;
 }
 
+export function envBool(name: string, fallback = false): boolean {
+  const value = process.env[name];
+  if (!value) return fallback;
+  return value.toLowerCase() === "true";
+}
+
 export function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var ${name}`);
@@ -17,8 +23,8 @@ export function publicConfig() {
     allowedBboxes: parseAllowedBboxes(env("ALLOWED_BBOXES_JSON")),
     azureMapsClientId: env("AZURE_MAPS_CLIENT_ID"),
     features: {
-      mediaUploads: env("MEDIA_UPLOADS_ENABLED", "false") === "true",
-      geocoding: env("GEOCODING_ENABLED", "false") === "true"
+      mediaUploads: envBool("MEDIA_UPLOADS_ENABLED"),
+      geocoding: envBool("GEOCODING_ENABLED")
     }
   };
 }

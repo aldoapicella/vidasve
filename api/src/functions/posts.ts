@@ -8,7 +8,7 @@ import { DefaultAzureCredential } from "@azure/identity";
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
 import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
-import { env } from "../lib/config.js";
+import { env, envBool } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { validateMediaUpload } from "../lib/mediaUpload.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
@@ -92,7 +92,7 @@ app.http("postsCreate", {
 });
 
 function mediaAllowed(): boolean {
-  return env("MEDIA_UPLOADS_ENABLED", "false") === "true";
+  return envBool("MEDIA_UPLOADS_ENABLED");
 }
 
 async function postBody(request: HttpRequest): Promise<{ fields: Record<string, unknown>; file?: UploadFile }> {

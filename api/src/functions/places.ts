@@ -1,7 +1,7 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { DefaultAzureCredential } from "@azure/identity";
 import { actorFromRequest } from "../lib/actor.js";
-import { env } from "../lib/config.js";
+import { env, envBool } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { parseAllowedBboxes } from "../lib/geo.js";
 import { mapAzurePlaces } from "../lib/places.js";
@@ -14,7 +14,7 @@ app.http("places", {
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     if (request.method === "OPTIONS") return options(request);
-    if (env("GEOCODING_ENABLED", "false") !== "true") return json(request, 200, { items: [] });
+    if (!envBool("GEOCODING_ENABLED")) return json(request, 200, { items: [] });
     const query = (request.query.get("q") ?? "").trim();
     if (query.length < 3) return json(request, 200, { items: [] });
 
