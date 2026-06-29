@@ -61,3 +61,12 @@ test("new offline queueing is network-only", () => {
   assert.match(app, /isNetworkError\(err\)/);
   assert.match(createReport, /isNetworkError\(err\)/);
 });
+
+test("direct case links focus the map on the selected report", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const map = readFileSync(new URL("../src/components/MapView.tsx", import.meta.url), "utf8");
+
+  assert.match(app, /selectedReport=\{selected\}/);
+  assert.match(map, /selectedReport\?: PublicReport \| null/);
+  assert.match(map, /map\.setCamera\(\{ center: coords, zoom: zoomForAccuracy/);
+});

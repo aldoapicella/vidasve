@@ -10,6 +10,7 @@ export function MapView({
   configReady,
   reports,
   selectedCode,
+  selectedReport,
   pickedLocation,
   isPicking,
   onBoundsChange,
@@ -20,6 +21,7 @@ export function MapView({
   configReady: boolean;
   reports: PublicReport[];
   selectedCode?: string;
+  selectedReport?: PublicReport | null;
   pickedLocation?: [number, number];
   isPicking?: boolean;
   onBoundsChange: (bbox?: [number, number, number, number]) => void;
@@ -35,6 +37,7 @@ export function MapView({
   const pickedMarkerRef = useRef<atlas.HtmlMarker | null>(null);
   const fallbackLoadedRef = useRef(false);
   const suppressNextMapClickRef = useRef(false);
+  const focusedReportRef = useRef("");
   const onReportSelectRef = useRef(onReportSelect);
   const isPickingRef = useRef(Boolean(isPicking));
   const [mapFailed, setMapFailed] = useState(false);
@@ -220,16 +223,28 @@ export function MapView({
   useEffect(() => {
     const source = sourceRef.current;
     if (!source) return;
+    const sourceReports = selectedReport ? [selectedReport, ...reports.filter((report) => report.code !== selectedReport.code)] : reports;
     source.clear();
     source.add(
-      reports
+      sourceReports
         .filter((report) => report.location && pointInAllowedZones(report.location.coordinates, config.allowedBboxes))
         .map((report) => new atlas.data.Feature(new atlas.data.Point(report.location!.coordinates), {
           ...report,
           markerIcon: markerIcon(report)
         }))
     );
-  }, [reports, config.allowedBboxes]);
+  }, [reports, selectedReport, config.allowedBboxes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const coords = selectedReport?.location?.coordinates;
+    if (!map || !mapReady || !selectedReport || !coords || !pointInAllowedZones(coords, config.allowedBboxes)) return;
+    const key = `${selectedReport.code}:${coords.join(",")}`;
+    if (focusedReportRef.current === key) return;
+    focusedReportRef.current = key;
+    popupRef.current?.close();
+    map.setCamera({ center: coords, zoom: zoomForAccuracy(selectedReport.locationAccuracy), type: "ease", duration: 420 });
+  }, [selectedReport, mapReady, config.allowedBboxes]);
 
   useEffect(() => {
     const radius = expression<number>(["case", ["==", ["get", "code"], selectedCode ?? ""], 18, 14]);
@@ -421,6 +436,12 @@ function markerIcon(report: PublicReport): string {
   if (report.type === "voices_or_hits") return MAP_ICON_IDS.voices;
   if (report.type === "trapped_person") return MAP_ICON_IDS.trapped;
   return report.priority === "P1" ? MAP_ICON_IDS.urgent : MAP_ICON_IDS.default;
+}
+
+function zoomForAccuracy(accuracy: PublicReport["locationAccuracy"]): number {
+  if (accuracy === "exact") return 17;
+  if (accuracy === "approximate") return 15;
+  return 13;
 }
 
 function iconSvg(paths: string, size: number, color = "currentColor"): string {

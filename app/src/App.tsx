@@ -727,6 +727,7 @@ export function App() {
             configReady={configReady}
             reports={mapReports}
             selectedCode={selected?.code}
+            selectedReport={selected}
             pickedLocation={pickedLocation}
             isPicking={pickHint && !pickedLocation && !selected}
             onBoundsChange={handleBoundsChange}
