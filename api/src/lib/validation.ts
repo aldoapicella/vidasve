@@ -66,6 +66,8 @@ export function parseCreateReportInput(body: unknown): CreateReportInput {
     deviceId: sanitizeText(value.deviceId, 120),
     captchaText: sanitizeText(value.captchaText, 20),
     captchaToken: sanitizeText(value.captchaToken, 3000),
+    clientMutationId: sanitizeText(value.clientMutationId, 120),
+    ownerToken: sanitizeText(value.ownerToken, 160),
     website: sanitizeText(value.website, 80),
     company: sanitizeText(value.company, 80),
     middleName: sanitizeText(value.middleName, 80),
@@ -141,6 +143,7 @@ export function parsePublicEvent(body: unknown): {
   deviceId?: string;
   person?: PublicPerson;
   challenge: CreateReportInput["challenge"];
+  clientMutationId?: string;
 } {
   const value = asRecord(body);
   const type = PUBLIC_EVENT_TYPES.has(value.type as EventType) ? (value.type as EventType) : "add_info";
@@ -150,12 +153,13 @@ export function parsePublicEvent(body: unknown): {
     reason: sanitizeText(value.reason, 80),
     contact: sanitizeText(value.contact, 160),
     deviceId: sanitizeText(value.deviceId, 120),
+    clientMutationId: sanitizeText(value.clientMutationId, 120),
     person: type === "add_person" ? parsePerson(value.person) : undefined,
     challenge: value.challenge as CreateReportInput["challenge"]
   };
 }
 
-export function parseOwnerEvent(body: unknown): { type: EventType; message: string; reason: string; ownerToken: string; deviceId?: string; challenge: CreateReportInput["challenge"] } {
+export function parseOwnerEvent(body: unknown): { type: EventType; message: string; reason: string; ownerToken: string; deviceId?: string; clientMutationId?: string; challenge: CreateReportInput["challenge"] } {
   const value = asRecord(body);
   const type = OWNER_EVENT_TYPES.has(value.type as EventType) ? (value.type as EventType) : "owner_add_info";
   return {
@@ -164,6 +168,7 @@ export function parseOwnerEvent(body: unknown): { type: EventType; message: stri
     reason: sanitizeText(value.reason, 80),
     ownerToken: sanitizeText(value.ownerToken, 240),
     deviceId: sanitizeText(value.deviceId, 120),
+    clientMutationId: sanitizeText(value.clientMutationId, 120),
     challenge: value.challenge as CreateReportInput["challenge"]
   };
 }
@@ -177,6 +182,7 @@ export function parsePublicPost(body: unknown): {
   tags: string[];
   contact?: string;
   deviceId?: string;
+  clientMutationId?: string;
   challenge: ChallengeSubmission;
 } {
   const value = asRecord(body);
@@ -189,6 +195,7 @@ export function parsePublicPost(body: unknown): {
     tags: Array.isArray(value.tags) ? value.tags.map((tag) => sanitizeText(tag, 40)).filter(Boolean).slice(0, 8) : [],
     contact: sanitizeText(value.contact, 160),
     deviceId: sanitizeText(value.deviceId, 120),
+    clientMutationId: sanitizeText(value.clientMutationId, 120),
     challenge: value.challenge as ChallengeSubmission
   };
 }

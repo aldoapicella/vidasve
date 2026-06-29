@@ -7,14 +7,18 @@
     "dev": "vite",
     "build": "tsc -b && vite build && cp staticwebapp.config.json dist/staticwebapp.config.json",
     "lint": "tsc -b --noEmit",
+    "e2e:mocked": "playwright test",
+    "test": "rm -rf .tmp-tests && tsc src/lib/outbox.ts --target ES2020 --module ES2020 --moduleResolution Node --outDir .tmp-tests --skipLibCheck && node --test tests/*.test.mjs; status=$?; rm -rf .tmp-tests; exit $status",
     "preview": "vite preview"
   },
   "dependencies": {
     "azure-maps-control": "^3.5.0",
+    "lucide-react": "^1.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/babel__generator": "^7.6.8",
     "@types/babel__template": "^7.4.4",
     "@types/babel__traverse": "^7.20.6",

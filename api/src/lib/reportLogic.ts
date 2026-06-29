@@ -13,11 +13,13 @@ export function makeReport(input: CreateReportInput, values: {
   reporterContactEncrypted?: string;
   contactHash?: string;
   possibleDuplicateCodes?: string[];
+  clientMutationId?: string;
   now: Date;
 }): Report {
   const priority = calculatePriority(input, values.now);
-  return {
+  const report: Report = {
     id: values.id,
+    clientMutationId: values.clientMutationId,
     code: values.code,
     areaKey: values.areaKey,
     geoCell: values.geoCell,
@@ -49,33 +51,37 @@ export function makeReport(input: CreateReportInput, values: {
     contactHash: values.contactHash,
     ownerTokenHash: values.ownerTokenHash,
     possibleDuplicateCodes: values.possibleDuplicateCodes ?? [],
+    visibility: "public",
     counters: { updates: 0, nearbyHelp: 0, resolutionClaims: 0, reopenClaims: 0, abuseFlags: 0 },
     createdAt: values.now.toISOString(),
     updatedAt: values.now.toISOString()
   };
+  return { ...report, searchText: reportSearchText(report) };
 }
 
 export function recalculateReport(report: Report, events: ReportEvent[], now = new Date()): Report {
+  const statusEvents = events.filter((event) => event.visibility !== "hidden" && event.visibility !== "removed");
   const priority = calculatePriority(report, now);
-  return {
+  const updated = {
     ...report,
     priority: priority.priority,
     priorityScore: priority.score,
-    derivedStatus: deriveStatus(report, events, now),
+    derivedStatus: deriveStatus(report, statusEvents, now),
     counters: {
-      updates: events.filter((event) => event.type === "add_info" || event.type === "owner_add_info").length,
-      nearbyHelp: events.filter((event) => event.type === "nearby_help").length,
-      resolutionClaims: events.filter((event) => event.type === "resolution_claim").length,
-      reopenClaims: events.filter((event) => event.type === "reopen_claim" || event.type === "owner_reopened").length,
-      abuseFlags: events.filter((event) => event.type === "abuse_flag").length
+      updates: statusEvents.filter((event) => event.type === "add_info" || event.type === "owner_add_info").length,
+      nearbyHelp: statusEvents.filter((event) => event.type === "nearby_help").length,
+      resolutionClaims: statusEvents.filter((event) => event.type === "resolution_claim").length,
+      reopenClaims: statusEvents.filter((event) => event.type === "reopen_claim" || event.type === "owner_reopened").length,
+      abuseFlags: statusEvents.filter((event) => event.type === "abuse_flag").length
     },
     updatedAt: now.toISOString()
   };
+  return { ...updated, searchText: reportSearchText(updated) };
 }
 
 export function addPersonToReport(report: Report, person: PublicPerson): Report {
   const persons = [...(report.persons ?? []), person];
-  return {
+  const updated = {
     ...report,
     peopleCount: countFromPersons(persons.length, report.peopleCount),
     persons,
@@ -83,15 +89,18 @@ export function addPersonToReport(report: Report, person: PublicPerson): Report 
     lastContactText: report.lastContactText || person.lastContactText,
     signsOfLife: report.signsOfLife || person.status === "signals_of_life"
   };
+  return { ...updated, searchText: reportSearchText(updated) };
 }
 
 export function makeEvent(values: Omit<ReportEvent, "id" | "createdAt" | "abuseScore" | "public"> & {
   abuseScore?: number;
   public?: boolean;
+  clientMutationId?: string;
   now: Date;
 }): ReportEvent {
   return {
     id: randomUUID(),
+    clientMutationId: values.clientMutationId,
     reportId: values.reportId,
     reportCode: values.reportCode,
     type: values.type,
@@ -101,19 +110,61 @@ export function makeEvent(values: Omit<ReportEvent, "id" | "createdAt" | "abuseS
     personId: values.personId,
     mediaUrl: values.mediaUrl,
     thumbnailUrl: values.thumbnailUrl,
+    mediaId: values.mediaId,
+    thumbnailMediaId: values.thumbnailMediaId,
     tags: values.tags,
-    public: values.public ?? true,
+    public: values.public ?? isPublicEventType(values.type),
+    visibility: "public",
+    searchText: searchText([values.reportCode, values.message, values.reason, values.postType, ...(values.tags ?? [])]),
     actor: values.actor,
     abuseScore: values.abuseScore ?? 0,
     createdAt: values.now.toISOString()
   };
 }
 
-export function duplicateCodes(candidate: CreateReportInput, existing: Report[]): string[] {
+export function isPublicEventType(type: ReportEvent["type"]): boolean {
+  return type !== "abuse_flag" && type !== "risk_update" && type !== "owner_contact_update";
+}
+
+export function reportSearchText(report: Pick<Report, "code" | "addressText" | "landmark" | "city" | "area" | "personDescriptionPublic" | "knownInfoPublic" | "lastContactText" | "persons">): string {
+  return searchText([
+    report.code,
+    report.addressText,
+    report.landmark,
+    report.city,
+    report.area,
+    report.personDescriptionPublic,
+    report.knownInfoPublic,
+    report.lastContactText,
+    ...(report.persons ?? []).flatMap((person) => [
+      person.displayName,
+      person.description,
+      person.lastContactText,
+      person.lastKnownPlace,
+      person.floorOrUnit,
+      person.publicContactName,
+      person.publicContactRelationship
+    ])
+  ]);
+}
+
+export function searchText(values: Array<string | null | undefined>): string {
+  return values
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 4000);
+}
+
+export function duplicateCodes(candidate: CreateReportInput, existing: Report[], candidateContactHash?: string): string[] {
   return existing
     .filter((report) => report.type === candidate.type)
     .filter((report) => {
-      const sameContact = candidate.reporterContact && report.contactHash;
+      const sameContact = candidateContactHash && report.contactHash === candidateContactHash;
       const similarText = normalizeMessage(report.addressText).includes(normalizeMessage(candidate.addressText).slice(0, 24));
       return sameContact || similarText;
     })

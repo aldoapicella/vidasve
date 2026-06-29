@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createReport, searchPlaces } from "../api/client";
+import { createReport, isNetworkError, searchPlaces } from "../api/client";
+import { enqueueOutbox } from "../lib/outbox";
 import type { PersonStatus, PlaceSuggestion, PublicConfig, PublicPerson, ReportType } from "../types";
 
 declare global {
@@ -65,12 +66,14 @@ export function CreateReportModal({
   defaultLocation,
   config,
   onClose,
-  onCreated
+  onCreated,
+  onQueued
 }: {
   defaultLocation?: [number, number];
   config: PublicConfig;
   onClose: () => void;
   onCreated: (result: CreatedReport) => void;
+  onQueued: () => void;
 }) {
   const [type, setType] = useState<ReportType>("trapped_person");
   const [busy, setBusy] = useState(false);
@@ -83,6 +86,7 @@ export function CreateReportModal({
   const [captchaToken, setCaptchaToken] = useState("");
   const pointOutsideZone = location && !locationUnknown && !pointInAllowedZones(location, config.allowedBboxes);
   const useTurnstile = config.captcha?.provider === "turnstile" && Boolean(config.captcha.siteKey);
+  const captchaReady = !useTurnstile || Boolean(captchaToken);
 
   useEffect(() => {
     if (!config.features.geocoding || addressText.trim().length < 3) {
@@ -101,7 +105,7 @@ export function CreateReportModal({
       setError("El punto está fuera de las zonas activas.");
       return;
     }
-    if (useTurnstile && !captchaToken) {
+    if (!captchaReady) {
       setError("Completa la verificación humana.");
       return;
     }
@@ -112,33 +116,43 @@ export function CreateReportModal({
     const publicPersons = persons.map(personToPayload).filter(Boolean) as PublicPerson[];
     const peopleCount = countFromPersons(publicPersons.length, String(form.get("peopleCount") ?? "unknown"));
     const lastContactAt = String(form.get("lastContactAt") ?? "");
+    const payload = {
+      website: form.get("website"),
+      company: form.get("company"),
+      middleName: form.get("middleName"),
+      captchaText: useTurnstile ? undefined : form.get("captchaText"),
+      captchaToken: useTurnstile ? captchaToken : undefined,
+      location: locationUnknown || !location ? undefined : { type: "Point", coordinates: location },
+      locationUnknown,
+      locationAccuracy: locationUnknown ? "zone_only" : "approximate",
+      addressText,
+      landmark: form.get("landmark"),
+      type,
+      peopleCount,
+      persons: publicPersons,
+      personDescriptionPublic: summarizePeople(publicPersons),
+      lastContactText: publicPersons.find((person) => person.lastContactText)?.lastContactText ?? formatLastContact(lastContactAt),
+      lastContactAt,
+      knownInfoPublic: form.get("knownInfoPublic"),
+      signsOfLife: type === "voices_or_hits" || publicPersons.some((person) => person.status === "signals_of_life") || form.get("signsOfLife") === "on",
+      riskFlags: form.getAll("riskFlags"),
+      sourceType: form.get("sourceType"),
+      reporterNamePublic: form.get("reporterNamePublic"),
+      reporterContact: form.get("reporterContact")
+    };
     try {
-      const result = await createReport({
-        website: form.get("website"),
-        company: form.get("company"),
-        middleName: form.get("middleName"),
-        captchaText: useTurnstile ? undefined : form.get("captchaText"),
-        captchaToken: useTurnstile ? captchaToken : undefined,
-        location: locationUnknown || !location ? undefined : { type: "Point", coordinates: location },
-        locationUnknown,
-        locationAccuracy: locationUnknown ? "zone_only" : "approximate",
-        addressText,
-        landmark: form.get("landmark"),
-        type,
-        peopleCount,
-        persons: publicPersons,
-        personDescriptionPublic: summarizePeople(publicPersons),
-        lastContactText: publicPersons.find((person) => person.lastContactText)?.lastContactText ?? formatLastContact(lastContactAt),
-        lastContactAt,
-        knownInfoPublic: form.get("knownInfoPublic"),
-        signsOfLife: type === "voices_or_hits" || publicPersons.some((person) => person.status === "signals_of_life") || form.get("signsOfLife") === "on",
-        riskFlags: form.getAll("riskFlags"),
-        sourceType: form.get("sourceType"),
-        reporterNamePublic: form.get("reporterNamePublic"),
-        reporterContact: form.get("reporterContact")
-      });
+      const result = await createReport(payload);
       onCreated({ code: result.code, publicUrl: result.publicUrl, ownerEditUrl: result.ownerEditUrl });
     } catch (err) {
+      if (isNetworkError(err)) {
+        if (useTurnstile) {
+          setError("La verificación humana requiere conexión. Reintenta cuando vuelva la red.");
+          return;
+        }
+        enqueueOutbox({ kind: "create_report", payload: { ...payload, reporterContact: undefined, captchaToken: undefined } });
+        onQueued();
+        return;
+      }
       setError(err instanceof Error ? err.message : "No se pudo crear el reporte.");
     } finally {
       setBusy(false);
@@ -379,7 +393,7 @@ export function CreateReportModal({
           <section className="captchaField" aria-label="Verificación humana">
             <strong>Verificación humana</strong>
             <TurnstileWidget siteKey={config.captcha.siteKey} onToken={setCaptchaToken} />
-            <small>Protección contra abuso antes de enviar el reporte.</small>
+            <small>Requiere conexión para verificar antes de enviar.</small>
           </section>
         ) : (
           <label className="captchaField">
@@ -391,7 +405,7 @@ export function CreateReportModal({
 
         {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="actions stickyActions">
-          <button type="submit" disabled={busy || Boolean(pointOutsideZone) || (useTurnstile && !captchaToken)}>
+          <button type="submit" disabled={busy || Boolean(pointOutsideZone) || !captchaReady}>
             {busy ? "Enviando..." : "Enviar reporte"}
           </button>
           <button className="ghost" type="button" onClick={onClose}>

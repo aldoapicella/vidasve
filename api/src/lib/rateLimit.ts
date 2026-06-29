@@ -14,8 +14,9 @@ export interface RateLimitStore {
 }
 
 type Limit = { key: keyof RateLimitIdentity; windowSeconds: number; max: number; label: string };
+type RateLimitedAction = PublicAction | "search";
 
-const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
+const LIMITS: Partial<Record<RateLimitedAction, Limit[]>> = {
   create_report: [
     { key: "ipHash", windowSeconds: 3600, max: 5, label: "ip" },
     { key: "deviceHash", windowSeconds: 3600, max: 8, label: "device" },
@@ -36,6 +37,10 @@ const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
     { key: "ipHash", windowSeconds: 3600, max: 20, label: "ip" },
     { key: "reportCode", windowSeconds: 600, max: 15, label: "report" }
   ],
+  search: [
+    { key: "ipHash", windowSeconds: 60, max: 60, label: "ip-minute" },
+    { key: "deviceHash", windowSeconds: 3600, max: 300, label: "device-hour" }
+  ],
   maps_token: [
     { key: "ipHash", windowSeconds: 60, max: 60, label: "ip-minute" },
     { key: "deviceHash", windowSeconds: 3600, max: 300, label: "device-hour" }
@@ -48,7 +53,7 @@ const LIMITS: Partial<Record<PublicAction, Limit[]>> = {
 
 export async function checkRateLimits(
   store: RateLimitStore,
-  action: PublicAction,
+  action: RateLimitedAction,
   identity: RateLimitIdentity,
   now = new Date()
 ): Promise<{ ok: true } | { ok: false; bucket: string }> {

@@ -6,9 +6,11 @@ infra/main.json
 .env
 .env.*
 !.env.example
+.local-secrets/
 local.settings.json
 *.zip
 deploy-api/
 .playwright-cli/
+app/test-results/
 output/
 .DS_Store

@@ -1,12 +1,26 @@
 {
+  "routes": [
+    {
+      "route": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
+      "route": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
+  ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*"]
+    "exclude": ["/assets/*", "/api/*"]
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
-    "Content-Security-Policy": "default-src 'self'; connect-src 'self' https://maparescate-api-j5oyin3m4kbek.azurewebsites.net https://atlas.microsoft.com https://*.atlas.microsoft.com https://challenges.cloudflare.com; img-src 'self' data: blob: https://atlas.microsoft.com https://*.atlas.microsoft.com https://*.blob.core.windows.net; font-src 'self' data: https://atlas.microsoft.com https://*.atlas.microsoft.com; style-src 'self' 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "Content-Security-Policy": "default-src 'self'; connect-src 'self' data: https://maparescate-api-j5oyin3m4kbek.azurewebsites.net https://atlas.microsoft.com https://*.atlas.microsoft.com https://challenges.cloudflare.com; img-src 'self' data: blob: https://maparescate-api-j5oyin3m4kbek.azurewebsites.net https://atlas.microsoft.com https://*.atlas.microsoft.com https://*.blob.core.windows.net; font-src 'self' data: https://atlas.microsoft.com https://*.atlas.microsoft.com; style-src 'self' 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   }
 }

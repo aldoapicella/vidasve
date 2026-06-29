@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createEvent, createPost, getConfig, getReport, listPosts, listReports, searchPublic } from "./api/client";
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createEvent, createPost, createReport, getConfig, getReport, isNetworkError, isRetryableError, listPosts, listReports, searchPublic } from "./api/client";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
-import { MapView } from "./components/MapView";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
+import { clearOutbox, enqueueOutbox, listOutbox, removeOutboxItem, updateOutboxItem, type OutboxItem } from "./lib/outbox";
 import type { PublicConfig, PublicEvent, PublicPerson, PublicPost, PublicPostType, PublicReport, PublicSearchResponse } from "./types";
 
 const DEFAULT_AFFECTED_ZONES: PublicConfig["allowedBboxes"] = [
@@ -23,7 +23,23 @@ const DEFAULT_CONFIG: PublicConfig = {
 };
 
 const APP_NAME = "VidasVE";
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true" || new URLSearchParams(location.search).get("demo") === "1";
+const DEMO_MODE = !import.meta.env.PROD && (import.meta.env.VITE_DEMO_MODE === "true" || new URLSearchParams(location.search).get("demo") === "1");
+const MapView = lazy(() => import("./components/MapView").then((module) => ({ default: module.MapView })));
+const AdminModerationPage = lazy(() => import("./components/AdminModerationPage").then((module) => ({ default: module.AdminModerationPage })));
+type ReportListView = "full" | "map";
+type MapBbox = [number, number, number, number];
+
+class MapErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 const DEMO_CASE = {
   code: "VE-ATLANTICO",
@@ -248,7 +264,12 @@ export function App() {
   const [remoteSearchResults, setRemoteSearchResults] = useState<ReturnType<typeof searchPublicContent> | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outboxItems, setOutboxItems] = useState<OutboxItem[]>(() => listOutbox());
+  const [outboxError, setOutboxError] = useState<string | null>(null);
   const filterRef = useRef(filter);
+  const flushingOutboxRef = useRef(false);
+  const lastMapBboxRef = useRef<MapBbox | undefined>();
+  const reportsRequestKeyRef = useRef("");
   const showFeed = location.pathname === "/feed";
   const infoPage = INFO_PAGES[location.pathname];
   const personRouteId = location.pathname.match(/^\/persona\/([^/]+)/)?.[1];
@@ -321,23 +342,31 @@ export function App() {
       .catch(() => setError("No se pudo abrir ese reporte."));
   }, []);
 
-  const refreshReports = useCallback(async (bbox?: [number, number, number, number], filterOverride?: string) => {
+  const refreshReports = useCallback(async (bbox?: MapBbox, filterOverride?: string, view: ReportListView = "map") => {
+    const activeFilter = filterOverride ?? filterRef.current;
+    const key = `${view}:${activeFilter}:${bbox?.map((value) => value.toFixed(5)).join(",") ?? "all"}`;
+    if (reportsRequestKeyRef.current === key) return;
+    reportsRequestKeyRef.current = key;
     setReportsLoading(true);
     try {
-      const response = await listReports(bbox, filterOverride ?? filterRef.current);
+      const response = await listReports(bbox, activeFilter, view);
+      if (reportsRequestKeyRef.current !== key) return;
       setReports(response.items);
       setReportsTruncated(response.truncated);
       setReportsLimit(response.limit);
       setError(null);
     } catch {
-      setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
+      if (reportsRequestKeyRef.current === key) {
+        reportsRequestKeyRef.current = "";
+        setError("No se pudieron cargar reportes. Revisa la API o intenta de nuevo.");
+      }
     } finally {
-      setReportsLoading(false);
+      if (reportsRequestKeyRef.current === key) setReportsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (personRouteId) void refreshReports(undefined, "all");
+    if (personRouteId) void refreshReports(undefined, "all", "full");
   }, [personRouteId, refreshReports]);
 
   const refreshPosts = useCallback(async () => {
@@ -348,14 +377,66 @@ export function App() {
     }
   }, []);
 
-  useEffect(() => {
-    void refreshPosts();
-  }, [refreshPosts]);
+  const refreshOutbox = useCallback(() => {
+    setOutboxItems(listOutbox());
+  }, []);
+
+  const flushOutbox = useCallback(async () => {
+    const items = listOutbox();
+    if (!items.length) {
+      refreshOutbox();
+      return;
+    }
+    if (flushingOutboxRef.current) return;
+    flushingOutboxRef.current = true;
+    setOutboxError(null);
+    try {
+      for (const item of items) {
+        try {
+          if (item.kind === "create_report") {
+            if (item.payload.captchaToken) {
+              removeOutboxItem(item.id);
+              continue;
+            }
+            await createReport(item.payload);
+          } else if (item.kind === "event") {
+            if (item.ownerToken) {
+              removeOutboxItem(item.id);
+              continue;
+            }
+            await createEvent(item.code, item.type, item.payload, item.ownerToken);
+          } else {
+            await createPost(item.code, item.payload);
+          }
+          removeOutboxItem(item.id);
+        } catch (err) {
+          const next = {
+            ...item,
+            attempts: item.attempts + 1,
+            lastError: err instanceof Error ? err.message : "No se pudo reenviar."
+          };
+          updateOutboxItem(next);
+          setOutboxError(next.lastError ?? null);
+          if (isRetryableError(err)) break;
+        }
+      }
+      refreshOutbox();
+      const tasks: Array<Promise<void>> = [
+        refreshReports(showFeed ? undefined : lastMapBboxRef.current, filterRef.current, showFeed ? "full" : "map")
+      ];
+      if (showFeed) tasks.push(refreshPosts());
+      await Promise.all(tasks);
+    } finally {
+      flushingOutboxRef.current = false;
+    }
+  }, [refreshOutbox, refreshPosts, refreshReports, showFeed]);
 
   useEffect(() => {
-    if (showFeed) return;
-    void refreshReports(undefined, filter);
-  }, [filter, refreshReports, showFeed]);
+    const retry = () => void flushOutbox();
+    window.addEventListener("online", retry);
+    if (navigator.onLine) void flushOutbox();
+    return () => window.removeEventListener("online", retry);
+  }, [flushOutbox]);
 
   useEffect(() => {
     const query = searchTerm.trim();
@@ -381,7 +462,7 @@ export function App() {
 
   useEffect(() => {
     if (!showFeed) return;
-    void refreshReports(undefined, filter);
+    void refreshReports(undefined, filter, "full");
     void refreshPosts();
   }, [filter, refreshPosts, refreshReports, showFeed]);
 
@@ -404,9 +485,18 @@ export function App() {
 
   async function sendEvent(type: Parameters<typeof createEvent>[1], message: string, reason?: string) {
     if (!selected) return;
-    const response = await createEvent(selected.code, type, { message, reason }, selectedOwnerToken);
-    setSelected(response.report);
-    setEvents((current) => [...current, response.event]);
+    const payload = { message, reason };
+    try {
+      const response = await createEvent(selected.code, type, payload, selectedOwnerToken);
+      setSelected(response.report);
+      if (response.event.public) setEvents((current) => [...current, response.event]);
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
+      if (selectedOwnerToken) throw new Error("La acción de propietario requiere conexión. Reintenta cuando vuelva la red.");
+      enqueueOutbox({ kind: "event", code: selected.code, type, payload, ownerToken: selectedOwnerToken });
+      refreshOutbox();
+      showToast("Actualización guardada pendiente de conexión.");
+    }
   }
 
   async function addPerson(person: PublicPerson) {
@@ -417,18 +507,35 @@ export function App() {
       showToast("Persona agregada en demo.");
       return;
     }
-    const response = await createEvent(selected.code, "add_person", {
+    const payload = {
       person,
       message: `Persona agregada: ${person.displayName}`
-    });
-    setSelected(response.report);
-    setEvents((current) => [...current, response.event]);
+    };
+    try {
+      const response = await createEvent(selected.code, "add_person", payload);
+      setSelected(response.report);
+      if (response.event.public) setEvents((current) => [...current, response.event]);
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
+      enqueueOutbox({ kind: "event", code: selected.code, type: "add_person", payload });
+      refreshOutbox();
+      showToast("Persona guardada pendiente de conexión.");
+    }
   }
 
   async function publishPost(code: string, payload: Record<string, unknown>) {
-    await createPost(code, payload);
-    await refreshPosts();
-    showToast("Publicación guardada.");
+    try {
+      await createPost(code, payload);
+      await refreshPosts();
+      showToast("Publicación guardada.");
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
+      const file = payload.file instanceof File && payload.file.size > 0 ? payload.file : undefined;
+      if (file) throw new Error("El archivo requiere conexión. Publica el texto ahora o reintenta cuando tengas internet.");
+      enqueueOutbox({ kind: "post", code, payload });
+      refreshOutbox();
+      showToast("Publicación guardada pendiente de conexión.");
+    }
   }
 
   const handleMapClick = useCallback((location: [number, number]) => {
@@ -439,6 +546,11 @@ export function App() {
     setPickedLocation(location);
     setPickHint(false);
   }, [config.allowedBboxes]);
+
+  const handleBoundsChange = useCallback((bbox?: MapBbox) => {
+    lastMapBboxRef.current = bbox;
+    void refreshReports(bbox, filterRef.current, "map");
+  }, [refreshReports]);
 
   async function openReportFromSearch(code: string) {
     const found = scopedReports.find((report) => report.code === code);
@@ -460,6 +572,32 @@ export function App() {
     setToast(message);
     window.setTimeout(() => setToast(null), 4200);
   }
+
+  function reportQueued() {
+    setCreateOpen(false);
+    refreshOutbox();
+    showToast("Reporte guardado pendiente de conexión.");
+  }
+
+  function openUploadForReport() {
+    setUploadOpen(true);
+  }
+
+  function discardOutbox() {
+    clearOutbox();
+    refreshOutbox();
+    setOutboxError(null);
+  }
+
+  const outboxBanner = outboxItems.length ? (
+    <OfflineBanner
+      message={`${outboxItems.length} envío${outboxItems.length === 1 ? "" : "s"} pendiente${outboxItems.length === 1 ? "" : "s"}.`}
+      detail={outboxError ?? outboxItems[0]?.lastError}
+      retryLabel="Enviar ahora"
+      onRetry={() => void flushOutbox()}
+      onDiscard={discardOutbox}
+    />
+  ) : null;
 
   async function shareCaseLink(code: string) {
     const url = `${window.location.origin}/caso/${code}`;
@@ -495,6 +633,14 @@ export function App() {
     history.replaceState(null, "", "/");
   }
 
+  if (location.pathname === "/admin") {
+    return (
+      <Suspense fallback={<main className="adminShell"><p className="adminEmpty">Cargando moderación...</p></main>}>
+        <AdminModerationPage />
+      </Suspense>
+    );
+  }
+
   if (infoPage) {
     return (
       <main className="signalShell pageShell" aria-label={APP_NAME}>
@@ -510,11 +656,13 @@ export function App() {
             onCreated={(result) => {
               setCreated(result);
               setCreateOpen(false);
-              void refreshReports();
+              void refreshReports(lastMapBboxRef.current, filterRef.current, "map");
             }}
+            onQueued={reportQueued}
           />
         ) : null}
         {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
+        {outboxBanner}
         {toast ? <Toast message={toast} /> : null}
       </main>
     );
@@ -532,7 +680,7 @@ export function App() {
           configReady={configReady}
           loading={!configReady || reportsLoading}
           mediaUploadsEnabled={config.features.mediaUploads}
-          onUpload={() => setUploadOpen(true)}
+          onUpload={() => openUploadForReport()}
           onShare={(code) => void shareCaseLink(code)}
         />
         <BottomNav active="feed" onReport={() => setCreateOpen(true)} />
@@ -544,8 +692,9 @@ export function App() {
             onCreated={(result) => {
               setCreated(result);
               setCreateOpen(false);
-              void refreshReports();
+              void refreshReports(undefined, filterRef.current, "full");
             }}
+            onQueued={reportQueued}
           />
         ) : null}
         {uploadOpen ? (
@@ -557,6 +706,7 @@ export function App() {
           />
         ) : null}
         {created ? <CreatedReportDialog created={created} onClose={() => setCreated(null)} /> : null}
+        {outboxBanner}
         {toast ? <Toast message={toast} /> : null}
       </main>
     );
@@ -564,17 +714,21 @@ export function App() {
 
   return (
     <main className={selected || personRoute ? "signalShell detailOpen" : "signalShell"} aria-label={APP_NAME}>
-      <MapView
-        config={config}
-        configReady={configReady}
-        reports={mapReports}
-        selectedCode={selected?.code}
-        pickedLocation={pickedLocation}
-        isPicking={pickHint && !pickedLocation && !selected}
-        onBoundsChange={refreshReports}
-        onReportSelect={selectReport}
-        onMapClick={handleMapClick}
-      />
+      <MapErrorBoundary fallback={<div className="mapLoading"><span /><strong>No se pudo cargar el mapa.</strong><button type="button" onClick={() => setCreateOpen(true)}>Reportar sin mapa</button></div>}>
+        <Suspense fallback={<div className="mapLoading"><span /><strong>Cargando mapa...</strong></div>}>
+          <MapView
+            config={config}
+            configReady={configReady}
+            reports={mapReports}
+            selectedCode={selected?.code}
+            pickedLocation={pickedLocation}
+            isPicking={pickHint && !pickedLocation && !selected}
+            onBoundsChange={handleBoundsChange}
+            onReportSelect={selectReport}
+            onMapClick={handleMapClick}
+          />
+        </Suspense>
+      </MapErrorBoundary>
 
       <SignalHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} onReport={beginReportFlow} />
       {searchTerm.trim() ? <SearchOverlay results={searchResults} onOpenReport={openReportFromSearch} /> : null}
@@ -584,7 +738,7 @@ export function App() {
           reports={contentReports}
           onChange={(next) => {
             setFilter(next);
-            void refreshReports(undefined, next);
+            void refreshReports(lastMapBboxRef.current, next, "map");
           }}
         />
       ) : null}
@@ -637,7 +791,8 @@ export function App() {
         </section>
       ) : null}
 
-      {error ? <OfflineBanner message={error} onRetry={() => void refreshReports()} /> : null}
+      {error ? <OfflineBanner message={error} onRetry={() => void refreshReports(lastMapBboxRef.current, filterRef.current, "map")} /> : null}
+      {outboxBanner}
 
       {createOpen ? (
         <CreateReportModal
@@ -647,8 +802,9 @@ export function App() {
           onCreated={(result) => {
             setCreated(result);
             setCreateOpen(false);
-            void refreshReports();
+            void refreshReports(lastMapBboxRef.current, filterRef.current, "map");
           }}
+          onQueued={reportQueued}
         />
       ) : null}
 
@@ -675,7 +831,7 @@ export function App() {
         <PersonProfileDrawer match={personRoute} onClose={closeDetail} />
       ) : DEMO_MODE ? (
         <CasePreviewPanel
-          onUpload={() => setUploadOpen(true)}
+          onUpload={() => openUploadForReport()}
           onReport={() => setCreateOpen(true)}
           onLifeSignal={() => showToast("Señal de vida creada: se agrega como pista pública independiente, sin cerrar el caso.")}
           onShare={() => void shareCaseLink(DEMO_CASE.code)}
@@ -1117,6 +1273,8 @@ function FlyerCard({ name }: { name: string }) {
   );
 }
 
+type FeedFilter = "recent" | "urgent" | "signals";
+
 function PublicFeed({
   reports,
   posts,
@@ -1134,6 +1292,13 @@ function PublicFeed({
   onUpload: () => void;
   onShare: (code: string) => void;
 }) {
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("recent");
+  const signalReportCodes = useMemo(
+    () => new Set(reports.filter((report) => report.signsOfLife).map((report) => report.code)),
+    [reports]
+  );
+  const visibleReports = useMemo(() => filterReportsForFeed(reports, feedFilter), [reports, feedFilter]);
+  const visiblePosts = useMemo(() => filterPostsForFeed(posts, feedFilter, signalReportCodes), [posts, feedFilter, signalReportCodes]);
   const signalCount = reports.filter((report) => report.signsOfLife).length;
   const urgentCount = reports.filter((report) => report.priority === "P1").length;
   return (
@@ -1143,7 +1308,7 @@ function PublicFeed({
           <h1>Publicaciones</h1>
           <p>Información pública publicada por familias y comunidad.</p>
         </div>
-        <select aria-label="Orden del feed" defaultValue="recent">
+        <select aria-label="Orden del feed" value={feedFilter} onChange={(event) => setFeedFilter(event.target.value as FeedFilter)}>
           <option value="recent">Más recientes</option>
           <option value="urgent">Más urgentes</option>
           <option value="signals">Señales de vida</option>
@@ -1171,9 +1336,57 @@ function PublicFeed({
         </div>
         <span className="riskBadge">{urgentCount} activos</span>
       </article>
-      {loading ? <FeedLoadingState /> : posts.length ? posts.map((post) => <FeedPost key={post.id} post={post} onShare={onShare} />) : reports.length ? reports.map((report) => <ReportFeedPost key={report.code} report={report} onShare={onShare} />) : <FeedEmptyState />}
+      {loading ? <FeedLoadingState /> : visiblePosts.length ? visiblePosts.map((post) => <FeedPost key={post.id} post={post} onShare={onShare} />) : visibleReports.length ? visibleReports.map((report) => <ReportFeedPost key={report.code} report={report} onShare={onShare} />) : <FeedEmptyState filter={feedFilter} />}
     </section>
   );
+}
+
+function filterReportsForFeed(reports: PublicReport[], filter: FeedFilter): PublicReport[] {
+  const filtered = filter === "signals"
+    ? reports.filter((report) => report.signsOfLife)
+    : filter === "urgent"
+      ? reports.filter((report) => report.priority === "P1" || report.priority === "P2")
+      : reports;
+
+  return [...filtered].sort((a, b) => {
+    if (filter === "urgent") {
+      const priorityDelta = priorityFeedRank(a.priority) - priorityFeedRank(b.priority);
+      if (priorityDelta) return priorityDelta;
+    }
+    return dateFeedRank(b.updatedAt) - dateFeedRank(a.updatedAt);
+  });
+}
+
+function filterPostsForFeed(posts: PublicPost[], filter: FeedFilter, signalReportCodes: Set<string>): PublicPost[] {
+  const filtered = filter === "signals"
+    ? posts.filter((post) => signalReportCodes.has(post.report.code) || post.tags.some(isSignalTag))
+    : filter === "urgent"
+      ? posts.filter((post) => post.report.priority === "P1" || post.report.priority === "P2")
+      : posts;
+
+  return [...filtered].sort((a, b) => {
+    if (filter === "urgent") {
+      const priorityDelta = priorityFeedRank(a.report.priority) - priorityFeedRank(b.report.priority);
+      if (priorityDelta) return priorityDelta;
+    }
+    return dateFeedRank(b.createdAt) - dateFeedRank(a.createdAt);
+  });
+}
+
+function priorityFeedRank(priority: PublicReport["priority"]): number {
+  if (priority === "P1") return 0;
+  if (priority === "P2") return 1;
+  return 2;
+}
+
+function dateFeedRank(value: string): number {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isSignalTag(tag: string): boolean {
+  const normalized = tag.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return normalized.includes("senal") || normalized.includes("vida");
 }
 
 function FeedLoadingState() {
@@ -1185,11 +1398,11 @@ function FeedLoadingState() {
   );
 }
 
-function FeedEmptyState() {
+function FeedEmptyState({ filter }: { filter: FeedFilter }) {
   return (
     <article className="feedEmptyState">
-      <strong>No hay publicaciones reales todavía.</strong>
-      <p>Cuando se creen reportes en las zonas activas, aparecerán aquí por prioridad y fecha.</p>
+      <strong>{filter === "recent" ? "No hay publicaciones reales todavía." : "No hay resultados para este filtro."}</strong>
+      <p>{filter === "recent" ? "Cuando se creen reportes en las zonas activas, aparecerán aquí por prioridad y fecha." : "Cambia el filtro o abre el mapa para revisar todos los reportes activos."}</p>
     </article>
   );
 }

@@ -6,6 +6,7 @@
     "APP_ENV": "local",
     "APP_HMAC_SECRET": "dev-only-change-me-32-bytes-minimum",
     "PII_ENCRYPTION_KEY": "dev-only-change-me-32-bytes-minimum",
+    "ADMIN_API_TOKEN": "dev-admin-token-change-me",
     "COSMOS_DATABASE": "maparescate",
     "ALLOWED_ORIGINS": "http://localhost:5173",
     "PUBLIC_APP_URL": "http://localhost:5173",

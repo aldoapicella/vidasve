@@ -8,8 +8,10 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "ci": "npm run lint --workspaces && npm run test --workspace api && npm run build --workspace app",
+    "ci": "npm run lint --workspaces && npm run test --workspace api && npm run test --workspace app && npm run e2e:mocked --workspace app && npm run build --workspace app",
     "import:reports": "node scripts/import-reports.mjs",
-    "test": "npm run test --workspace api"
+    "admin:moderate": "node scripts/admin-moderate.mjs",
+    "smoke:launch": "node scripts/launch-smoke.mjs",
+    "test": "npm run test --workspaces"
   }
 }

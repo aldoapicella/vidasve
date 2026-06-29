@@ -1,45 +1,32 @@
 import { randomUUID } from "node:crypto";
-import {
-  BlobSASPermissions,
-  BlobServiceClient,
-  generateBlobSASQueryParameters
-} from "@azure/storage-blob";
-import { DefaultAzureCredential } from "@azure/identity";
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
+import { mediaBlobClient } from "../lib/blobMedia.js";
 import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env, envBool } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { validateMediaUpload } from "../lib/mediaUpload.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
 import { makeEvent, recalculateReport } from "../lib/reportLogic.js";
-import { publicPost, publicReport } from "../lib/sanitize.js";
+import { isPublicReport, publicPost, publicReport } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import { parsePublicPost } from "../lib/validation.js";
-import type { ChallengeSubmission } from "../lib/types.js";
+import type { ChallengeSubmission, MediaAsset } from "../lib/types.js";
 
 app.http("postsList", {
-  route: "posts",
+  route: "api/posts",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     if (request.method === "OPTIONS") return options(request);
     const limit = Math.min(Number(request.query.get("limit") ?? 50) || 50, 100);
-    const reports = await getStore().listReports({ limit: 100 });
-    // ponytail: N+1 is fine for MVP feed size; add an indexed posts container when feed volume hurts.
-    const posts = (await Promise.all(reports.map(async (report) => {
-      const events = await getStore().listEvents(report.id);
-      return events
-        .filter((event) => event.public && event.type === "public_post")
-        .map((event) => publicPost(event, report));
-    }))).flat();
-    posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const posts = (await getStore().listPublicPostEvents(limit + 1)).map(({ event, report }) => publicPost(event, report));
     return json(request, 200, { items: posts.slice(0, limit), truncated: posts.length > limit, limit });
   }
 });
 
 app.http("postsCreate", {
-  route: "reports/{code}/posts",
+  route: "api/reports/{code}/posts",
   authLevel: "anonymous",
   methods: ["POST", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
@@ -47,10 +34,14 @@ app.http("postsCreate", {
     const code = String(request.params.code ?? "").toUpperCase();
     const store = getStore();
     const report = await store.getReportByCode(code);
-    if (!report) return json(request, 404, { ok: false, error: "not_found" });
+    if (!report || !isPublicReport(report)) return json(request, 404, { ok: false, error: "not_found" });
 
     const body = await postBody(request);
     const input = parsePublicPost(body.fields);
+    const previousEvent = input.clientMutationId
+      ? (await store.listEvents(report.id)).find((event) => event.clientMutationId === input.clientMutationId)
+      : undefined;
+    if (previousEvent) return json(request, 200, { ok: true, post: publicPost(previousEvent, report), report: publicReport(report) });
     if (!input.text) return json(request, 400, { ok: false, error: "text_required" });
     if (body.file && !mediaAllowed()) return json(request, 400, { ok: false, error: "media_uploads_disabled" });
     if (!body.file && (input.mediaUrl || input.thumbnailUrl)) return json(request, 400, { ok: false, error: "invalid_media_url" });
@@ -69,7 +60,15 @@ app.http("postsCreate", {
     const rate = await checkRateLimits(store, "public_post", { ...actor, reportCode: report.code, geoCell: report.geoCell });
     if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
 
-    const mediaUrl = body.file ? await uploadFile(body.file, report.code) : undefined;
+    let mediaAsset: MediaAsset | undefined;
+    if (body.file) {
+      try {
+        mediaAsset = await uploadFile(body.file, report);
+        await store.createMediaAsset(mediaAsset);
+      } catch {
+        return json(request, 503, { ok: false, error: "media_upload_failed" });
+      }
+    }
     const event = makeEvent({
       reportId: report.id,
       reportCode: report.code,
@@ -77,9 +76,10 @@ app.http("postsCreate", {
       message: input.text,
       postType: input.postType,
       personId: input.personId,
-      mediaUrl,
-      thumbnailUrl: mediaUrl && body.file?.type.startsWith("image/") ? mediaUrl : undefined,
+      mediaId: mediaAsset?.id,
+      thumbnailMediaId: mediaAsset && body.file?.type.startsWith("image/") ? mediaAsset.id : undefined,
       tags: input.tags,
+      clientMutationId: input.clientMutationId,
       actor,
       now: new Date()
     });
@@ -112,42 +112,28 @@ async function postBody(request: HttpRequest): Promise<{ fields: Record<string, 
       tags: form.getAll("tags"),
       contact: form.get("contact"),
       deviceId: form.get("deviceId"),
+      clientMutationId: form.get("clientMutationId"),
       challenge: parseChallenge(challengeRaw)
     }
   };
 }
 
-async function uploadFile(file: UploadFile, reportCode: string): Promise<string> {
-  const account = env("MEDIA_STORAGE_ACCOUNT");
-  const container = env("MEDIA_CONTAINER", "report-media");
-  if (!account) throw new Error("MEDIA_STORAGE_ACCOUNT missing");
-  const blobName = `${reportCode}/${randomUUID()}-${safeFileName(file.name)}`;
-  const client = new BlobServiceClient(`https://${account}.blob.core.windows.net`, new DefaultAzureCredential());
-  const blob = client.getContainerClient(container).getBlockBlobClient(blobName);
+async function uploadFile(file: UploadFile, report: { id: string; code: string }): Promise<MediaAsset> {
+  const blobName = `${report.code}/${randomUUID()}-${safeFileName(file.name)}`;
+  const { blob } = mediaBlobClient(blobName);
   await blob.uploadData(Buffer.from(await file.arrayBuffer()), {
     blobHTTPHeaders: { blobContentType: file.type }
   });
-  return createReadUrl(client, account, container, blobName, blob.url);
-}
-
-async function createReadUrl(
-  client: BlobServiceClient,
-  account: string,
-  containerName: string,
-  blobName: string,
-  blobUrl: string
-): Promise<string> {
-  const startsOn = new Date(Date.now() - 5 * 60 * 1000);
-  const expiresOn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const delegationKey = await client.getUserDelegationKey(startsOn, expiresOn);
-  const sas = generateBlobSASQueryParameters({
-    containerName,
+  return {
+    id: randomUUID(),
+    reportId: report.id,
+    reportCode: report.code,
     blobName,
-    startsOn,
-    expiresOn,
-    permissions: BlobSASPermissions.parse("r")
-  }, delegationKey, account).toString();
-  return `${blobUrl}?${sas}`;
+    contentType: file.type,
+    size: file.size,
+    visibility: "public",
+    createdAt: new Date().toISOString()
+  };
 }
 
 function parseChallenge(value: unknown): ChallengeSubmission | undefined {

@@ -5,13 +5,13 @@ import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
 import { addPersonToReport, makeEvent, recalculateReport } from "../lib/reportLogic.js";
-import { publicEvent, publicReport } from "../lib/sanitize.js";
+import { isPublicReport, publicEvent, publicReport } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import { parsePublicEvent } from "../lib/validation.js";
 import type { PublicAction } from "../lib/types.js";
 
 app.http("reportEvents", {
-  route: "reports/{code}/events",
+  route: "api/reports/{code}/events",
   authLevel: "anonymous",
   methods: ["POST", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
@@ -19,10 +19,14 @@ app.http("reportEvents", {
     const code = String(request.params.code ?? "").toUpperCase();
     const store = getStore();
     const report = await store.getReportByCode(code);
-    if (!report) return json(request, 404, { ok: false, error: "not_found" });
+    if (!report || !isPublicReport(report)) return json(request, 404, { ok: false, error: "not_found" });
 
     const body = await request.json().catch(() => ({}));
     const input = parsePublicEvent(body);
+    const previousEvent = input.clientMutationId
+      ? (await store.listEvents(report.id)).find((event) => event.clientMutationId === input.clientMutationId)
+      : undefined;
+    if (previousEvent) return json(request, 200, { ok: true, report: publicReport(report), event: publicEvent(previousEvent) });
     const secret = env("APP_HMAC_SECRET", "dev-secret-change-me");
     const action = input.type as PublicAction;
     const challenge = verifyChallenge(input.challenge, action, secret);
@@ -50,6 +54,7 @@ app.http("reportEvents", {
       message: input.message || (input.person ? `Persona agregada: ${input.person.displayName}` : ""),
       reason: input.reason,
       personId: input.person?.id,
+      clientMutationId: input.clientMutationId,
       actor,
       now: new Date()
     });

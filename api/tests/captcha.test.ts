@@ -35,3 +35,15 @@ test("validateCaptcha verifies Turnstile tokens server-side when configured", as
     else process.env.TURNSTILE_SECRET_KEY = previousSecret;
   }
 });
+
+test("validateCaptcha rejects text fallback when Turnstile is configured", async () => {
+  const previous = process.env.TURNSTILE_SECRET_KEY;
+  process.env.TURNSTILE_SECRET_KEY = "test-secret";
+
+  try {
+    assert.equal(await validateCaptcha({ captchaText: "VIDA" }), "captcha_failed");
+  } finally {
+    if (previous === undefined) delete process.env.TURNSTILE_SECRET_KEY;
+    else process.env.TURNSTILE_SECRET_KEY = previous;
+  }
+});

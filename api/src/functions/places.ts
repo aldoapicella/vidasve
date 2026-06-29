@@ -9,7 +9,7 @@ import { checkRateLimits } from "../lib/rateLimit.js";
 import { getStore } from "../lib/store.js";
 
 app.http("places", {
-  route: "places",
+  route: "api/places",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {

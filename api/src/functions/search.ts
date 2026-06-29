@@ -1,11 +1,14 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
+import { actorFromRequest } from "../lib/actor.js";
+import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
+import { checkRateLimits } from "../lib/rateLimit.js";
 import { publicPost, publicReport, sanitizeText } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import type { PublicPerson, Report } from "../lib/types.js";
 
 app.http("search", {
-  route: "search",
+  route: "api/search",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
@@ -14,15 +17,11 @@ app.http("search", {
     if (query.length < 2) return json(request, 200, { reports: [], people: [], posts: [], locations: [] });
 
     const store = getStore();
-    const reports = await store.listReports({ limit: 500 });
-    const matches = reports.filter((report) => matchesReport(report, query));
-    // ponytail: scan recent report events for MVP; add an indexed posts container when search volume hurts.
-    const posts = (await Promise.all(reports.map(async (report) => {
-      const events = await store.listEvents(report.id);
-      return events
-        .filter((event) => event.public && event.type === "public_post" && (event.message ?? "").toLowerCase().includes(query))
-        .map((event) => publicPost(event, report));
-    }))).flat();
+    const actor = actorFromRequest(request, env("APP_HMAC_SECRET", "dev-secret-change-me"), {});
+    const rate = await checkRateLimits(store, "search", actor);
+    if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
+    const matches = (await store.searchReports(query, 50)).filter((report) => matchesReport(report, query));
+    const posts = (await store.searchPublicPostEvents(query, 25)).map(({ event, report }) => publicPost(event, report));
     return json(request, 200, {
       reports: matches.map(publicReport).slice(0, 25),
       people: matches.flatMap((report) => matchingPeople(report, query)).slice(0, 25),

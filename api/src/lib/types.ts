@@ -51,6 +51,8 @@ export type DerivedStatus =
   | "reopened"
   | "hidden_abuse";
 
+export type Visibility = "public" | "queued" | "hidden" | "removed";
+
 export interface Actor {
   hasOwnerToken: boolean;
   ipHash?: string;
@@ -61,6 +63,7 @@ export interface Actor {
 
 export interface ReportEvent {
   id: string;
+  clientMutationId?: string;
   reportId: string;
   reportCode: string;
   type: EventType;
@@ -70,8 +73,15 @@ export interface ReportEvent {
   personId?: string;
   mediaUrl?: string;
   thumbnailUrl?: string;
+  mediaId?: string;
+  thumbnailMediaId?: string;
   tags?: string[];
   public: boolean;
+  visibility?: Visibility;
+  moderationReason?: string | null;
+  moderatedAt?: string;
+  moderatedByHash?: string;
+  searchText?: string;
   actor: Actor;
   abuseScore: number;
   createdAt: string;
@@ -118,8 +128,23 @@ export interface PublicPost {
   };
 }
 
+export interface MediaAsset {
+  id: string;
+  reportId: string;
+  reportCode: string;
+  blobName: string;
+  contentType: string;
+  size: number;
+  visibility?: Visibility;
+  createdAt: string;
+  moderationReason?: string | null;
+  moderatedAt?: string;
+  moderatedByHash?: string;
+}
+
 export interface Report {
   id: string;
+  clientMutationId?: string;
   code: string;
   areaKey: string;
   geoCell: string;
@@ -151,6 +176,11 @@ export interface Report {
   contactHash?: string;
   ownerTokenHash: string;
   possibleDuplicateCodes: string[];
+  visibility?: Visibility;
+  moderationReason?: string | null;
+  moderatedAt?: string;
+  moderatedByHash?: string;
+  searchText?: string;
   counters: {
     updates: number;
     nearbyHelp: number;
@@ -161,6 +191,27 @@ export interface Report {
   createdAt: string;
   updatedAt: string;
 }
+
+export type ReportMapItem = Pick<
+  Report,
+  | "id"
+  | "code"
+  | "location"
+  | "locationUnknown"
+  | "locationAccuracy"
+  | "addressText"
+  | "landmark"
+  | "city"
+  | "area"
+  | "type"
+  | "derivedStatus"
+  | "priority"
+  | "peopleCount"
+  | "signsOfLife"
+  | "sourceType"
+  | "counters"
+  | "updatedAt"
+>;
 
 export interface ChallengeEnvelope {
   nonce: string;
@@ -207,6 +258,8 @@ export interface CreateReportInput {
   deviceId?: string;
   captchaText?: string;
   captchaToken?: string;
+  clientMutationId?: string;
+  ownerToken?: string;
   website?: string;
   company?: string;
   middleName?: string;

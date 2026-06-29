@@ -6,6 +6,8 @@ import "./functions/places.js";
 import "./functions/reportsCreate.js";
 import "./functions/search.js";
 import "./functions/posts.js";
+import "./functions/media.js";
 import "./functions/reportGet.js";
 import "./functions/reportEvents.js";
 import "./functions/reportOwnerEvents.js";
+import "./functions/adminModeration.js";

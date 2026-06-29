@@ -29,11 +29,14 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run ci
       - name: Build SPA
         run: npm run build --workspace app
         env:
           VITE_API_BASE_URL: https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api
+      - name: Verify SPA CSP API host
+        run: grep -q "https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net" app/dist/staticwebapp.config.json
       - name: Deploy Static Web App
         run: |
           token="$(az staticwebapp secrets list --name "${{ vars.SWA_NAME }}" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --query properties.apiKey -o tsv)"
@@ -44,11 +47,16 @@ jobs:
       - name: Build API package
         run: |
           npm run build --workspace api
-          rm -rf deploy-api
-          mkdir deploy-api
+          rm -rf deploy-api deploy-api-work
+          mkdir -p deploy-api deploy-api-work/api
+          cp package.json package-lock.json deploy-api-work/
+          cp api/package.json deploy-api-work/api/
+          npm ci --omit=dev --workspace api --include-workspace-root=false --prefix deploy-api-work
           cp -R api/dist api/host.json api/package.json deploy-api/
+          cp -R deploy-api-work/node_modules deploy-api/
+          cp -R deploy-api-work/api/node_modules/. deploy-api/node_modules/
+          node deploy-api/dist/src/index.js
           cd deploy-api
-          npm install --omit=dev
           zip -qr ../api.zip .
       - name: Deploy Function App
         run: |
@@ -58,4 +66,17 @@ jobs:
             --src api.zip
       - name: Smoke test API
         run: |
-          curl --fail "https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api/health"
+          for attempt in 1 2 3 4 5; do
+            curl --fail "https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api/health/deep" && exit 0
+            sleep 10
+          done
+          exit 1
+      - name: Smoke test browser CORS
+        run: |
+          curl --fail -sS -D cors-headers.txt -o /dev/null \
+            -X OPTIONS "https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api/reports" \
+            -H "Origin: ${{ vars.PUBLIC_APP_URL }}" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: authorization,content-type"
+          grep -qi "access-control-allow-origin: ${{ vars.PUBLIC_APP_URL }}" cors-headers.txt
+          grep -qi "access-control-allow-headers: .*authorization" cors-headers.txt

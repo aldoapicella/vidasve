@@ -24,9 +24,12 @@ export function ReportDetailDrawer({
   const [personBusy, setPersonBusy] = useState(false);
   const [personError, setPersonError] = useState<string | null>(null);
   const people = report.persons ?? [];
+  const riskFlags = report.riskFlags ?? [];
+  const possibleDuplicateCodes = report.possibleDuplicateCodes ?? [];
+  const safeEvents = events ?? [];
   const primaryPerson = people[0];
-  const mediaEvents = events.filter((event) => event.thumbnailUrl);
-  const publicPosts = events.filter((event) => event.type === "public_post");
+  const mediaEvents = safeEvents.filter((event) => event.thumbnailUrl);
+  const publicPosts = safeEvents.filter((event) => event.type === "public_post");
   const peopleCount = people.length || countFromReport(report.peopleCount);
   const risk = riskLabel(report.priority);
 
@@ -122,17 +125,17 @@ export function ReportDetailDrawer({
             <div><dt>Urgencia</dt><dd>{risk.shortLabel}</dd></div>
             <div><dt>Estado</dt><dd>{statusLabel(report.derivedStatus)}</dd></div>
             <div><dt>Publicaciones</dt><dd>{publicPosts.length}</dd></div>
-            <div><dt>Actualizaciones</dt><dd>{events.length}</dd></div>
+            <div><dt>Actualizaciones</dt><dd>{safeEvents.length}</dd></div>
             <div><dt>Última actualización</dt><dd>{formatEventTime(report.updatedAt)}</dd></div>
           </dl>
         </section>
       </div>
 
-      {report.riskFlags.length || report.signsOfLife || report.possibleDuplicateCodes?.length ? (
+      {riskFlags.length || report.signsOfLife || possibleDuplicateCodes.length ? (
         <div className="caseTags" aria-label="Etiquetas del reporte">
           {report.signsOfLife ? <span className="greenTag">Señales de vida</span> : null}
-          {report.riskFlags.map((flag) => <span key={flag}>{flag}</span>)}
-          {report.possibleDuplicateCodes?.map((code) => <span key={code}>Posible duplicado {code}</span>)}
+          {riskFlags.map((flag) => <span key={flag}>{flag}</span>)}
+          {possibleDuplicateCodes.map((code) => <span key={code}>Posible duplicado {code}</span>)}
         </div>
       ) : null}
 
@@ -235,7 +238,7 @@ export function ReportDetailDrawer({
       <section className="caseSection">
         <h2>Actualizaciones públicas</h2>
         <ol className="timeline">
-          {events.map((event) => (
+          {safeEvents.map((event) => (
             <li key={event.id}>
               <span>{eventTypeLabel(event.type)}</span>
               {event.thumbnailUrl ? (

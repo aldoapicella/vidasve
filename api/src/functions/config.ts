@@ -3,7 +3,7 @@ import { json, options } from "../lib/cors.js";
 import { publicConfig } from "../lib/config.js";
 
 app.http("config", {
-  route: "config",
+  route: "api/config",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {

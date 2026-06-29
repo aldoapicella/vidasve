@@ -19,6 +19,14 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   rate_limited: "Hay demasiados intentos desde esta conexión o dispositivo. Espera unos minutos."
 };
 
+export function isRetryableError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { retryable?: boolean }).retryable);
+}
+
+export function isNetworkError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { networkError?: boolean }).networkError);
+}
+
 export async function getConfig(): Promise<PublicConfig> {
   return request<PublicConfig>("/config");
 }
@@ -29,15 +37,18 @@ export async function getMapToken(): Promise<{ token: string; expiresOn: string 
 
 export async function listReports(
   bbox?: [number, number, number, number],
-  filter?: string
+  filter?: string,
+  view: "full" | "map" = "full"
 ): Promise<{ items: PublicReport[]; truncated: boolean; limit: number }> {
   const params = new URLSearchParams();
+  if (view === "map") params.set("view", "map");
   if (bbox) params.set("bbox", bbox.map((value) => value.toFixed(5)).join(","));
   if (filter && filter !== "all") {
     if (filter.startsWith("P")) params.set("priority", filter);
     else if (SERVER_STATUSES.has(filter)) params.set("status", filter);
   }
-  const response = await request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports?${params}`);
+  const query = params.toString();
+  const response = await request<{ items: PublicReport[]; truncated: boolean; limit: number }>(`/reports${query ? `?${query}` : ""}`);
   return { ...response, items: array(response.items).map(normalizeReport) };
 }
 
@@ -75,6 +86,8 @@ export async function createReport(payload: Record<string, unknown>): Promise<{
   report: PublicReport;
   message: string;
 }> {
+  ensureClientMutationId(payload);
+  ensureOwnerToken(payload);
   const challenge = await proof("create_report");
   const response = await request<{
     ok: boolean;
@@ -91,6 +104,7 @@ export async function createReport(payload: Record<string, unknown>): Promise<{
 }
 
 export async function createEvent(code: string, type: EventType, payload: Record<string, unknown>, ownerToken?: string) {
+  ensureClientMutationId(payload);
   const owner = type === "owner_resolved" || type === "owner_reopened";
   const challenge = await proof(owner ? "owner_event" : type);
   const response = await request<{ ok: boolean; report: PublicReport; event: PublicEvent }>(
@@ -104,6 +118,7 @@ export async function createEvent(code: string, type: EventType, payload: Record
 }
 
 export async function createPost(code: string, payload: Record<string, unknown>) {
+  ensureClientMutationId(payload);
   const challenge = await proof("public_post");
   const file = payload.file instanceof File && payload.file.size > 0 ? payload.file : undefined;
   if (file) {
@@ -150,10 +165,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
     });
   } catch {
-    throw new Error("No se pudo conectar con la API. Revisa la conexión, CORS o la URL VITE_API_BASE_URL.");
+    const error = new Error("No se pudo conectar con la API. El envío quedó listo para reintentar cuando vuelva la conexión.");
+    (error as Error & { retryable: boolean; networkError: boolean }).retryable = true;
+    (error as Error & { networkError: boolean }).networkError = true;
+    throw error;
   }
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error((body.error && API_ERROR_MESSAGES[body.error]) || body.error || `Request failed: ${response.status}`);
+  if (!response.ok) {
+    const error = new Error((body.error && API_ERROR_MESSAGES[body.error]) || body.error || `Request failed: ${response.status}`);
+    if (response.status === 429 || response.status >= 500) (error as Error & { retryable: boolean }).retryable = true;
+    throw error;
+  }
   return body;
 }
 
@@ -198,6 +220,8 @@ function normalizeEvent(event: PublicEvent): PublicEvent {
     reportCode: text(source.reportCode).toUpperCase(),
     type: text(source.type) as PublicEvent["type"],
     message: text(source.message),
+    mediaUrl: apiMediaUrl(text(source.mediaUrl)),
+    thumbnailUrl: apiMediaUrl(text(source.thumbnailUrl)),
     tags: array(source.tags).map(text).filter(Boolean),
     public: source.public !== false,
     abuseScore: number(source.abuseScore),
@@ -214,6 +238,8 @@ function normalizePost(post: PublicPost): PublicPost {
     reportCode: text(source.reportCode).toUpperCase(),
     reportId: text(source.reportId),
     text: text(source.text),
+    mediaUrl: apiMediaUrl(text(source.mediaUrl)),
+    thumbnailUrl: apiMediaUrl(text(source.thumbnailUrl)),
     type: oneOf(source.type, ["story", "photo", "flyer", "screenshot", "pdf", "update"], "story"),
     tags: array(source.tags).map(text).filter(Boolean),
     createdAt: text(source.createdAt) || new Date(0).toISOString(),
@@ -224,6 +250,12 @@ function normalizePost(post: PublicPost): PublicPost {
       derivedStatus: text(report.derivedStatus) || "open"
     }
   } as PublicPost;
+}
+
+function apiMediaUrl(value: string): string | undefined {
+  if (!value) return undefined;
+  if (!value.startsWith("/api/")) return value;
+  return `${API_BASE}${value.slice(4)}`;
 }
 
 function normalizePerson(person: PublicPerson, index: number): PublicPerson {
@@ -258,4 +290,12 @@ function text(value: unknown): string {
 
 function array<T>(value: T[] | undefined): T[] {
   return Array.isArray(value) ? value : [];
+}
+
+function ensureClientMutationId(payload: Record<string, unknown>): void {
+  if (!text(payload.clientMutationId)) payload.clientMutationId = crypto.randomUUID();
+}
+
+function ensureOwnerToken(payload: Record<string, unknown>): void {
+  if (!text(payload.ownerToken)) payload.ownerToken = `${crypto.randomUUID()}${crypto.randomUUID()}`;
 }

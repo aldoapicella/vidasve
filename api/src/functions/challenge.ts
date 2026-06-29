@@ -5,7 +5,7 @@ import { json, options } from "../lib/cors.js";
 import type { PublicAction } from "../lib/types.js";
 
 app.http("challenge", {
-  route: "challenge",
+  route: "api/challenge",
   authLevel: "anonymous",
   methods: ["POST", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {

@@ -5,7 +5,7 @@ import { json, options } from "../lib/cors.js";
 import { getStore } from "../lib/store.js";
 
 app.http("health", {
-  route: "health",
+  route: "api/health",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
@@ -15,7 +15,7 @@ app.http("health", {
 });
 
 app.http("healthDeep", {
-  route: "health/deep",
+  route: "api/health/deep",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {

@@ -15,6 +15,5 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint --workspaces
-      - run: npm run test --workspace api
-      - run: npm run build --workspace app
+      - run: npx playwright install --with-deps chromium
+      - run: npm run ci

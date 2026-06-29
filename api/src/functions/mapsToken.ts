@@ -7,7 +7,7 @@ import { checkRateLimits } from "../lib/rateLimit.js";
 import { getStore } from "../lib/store.js";
 
 app.http("mapsToken", {
-  route: "maps/token",
+  route: "api/maps/token",
   authLevel: "anonymous",
   methods: ["GET", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {

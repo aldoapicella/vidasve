@@ -79,9 +79,17 @@ button:disabled {
   overflow: hidden;
 }
 
-.mapCanvas,
+.mapCanvas {
+  /* Azure Maps writes position: relative inline; keep the shell frame from collapsing. */
+  position: absolute !important;
+}
+
 .fallbackMap {
   position: absolute;
+}
+
+.mapCanvas,
+.fallbackMap {
   inset: 0;
   width: 100%;
   height: 100%;
@@ -138,6 +146,10 @@ button:disabled {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   font-size: 14px;
+}
+
+.mapLoading button {
+  pointer-events: auto;
 }
 
 @keyframes spin {
@@ -454,7 +466,7 @@ textarea {
   left: 12px;
   right: 12px;
   bottom: 92px;
-  z-index: 12;
+  z-index: 95;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -471,23 +483,34 @@ textarea {
   color: var(--ink);
 }
 
+.offline span {
+  display: grid;
+  gap: 2px;
+}
+
+.offline small {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+}
+
 .scrim {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(16, 24, 32, 0.62);
+  background: rgba(16, 24, 32, 0.46);
   display: grid;
-  place-items: end center;
+  place-items: center;
+  padding: 24px;
 }
 
 .modal {
   width: min(760px, 100%);
-  max-height: min(92dvh, 900px);
+  max-height: calc(100dvh - 48px);
   overflow: auto;
   background: var(--surface-strong);
-  border-radius: 8px 8px 0 0;
+  border-radius: 8px;
   padding: 18px;
-  box-shadow: 0 -22px 54px rgba(15, 23, 42, 0.26);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
 }
 
 .compactModal {
@@ -531,7 +554,7 @@ textarea {
 }
 
 .quickReport {
-  width: min(720px, 100%);
+  width: min(1040px, 100%);
 }
 
 .stepper {
@@ -791,6 +814,158 @@ textarea {
   margin: 8px 0;
 }
 
+.adminShell {
+  min-height: 100vh;
+  padding: 24px;
+  background: #f8fafc;
+  color: #111827;
+}
+
+.adminLogin,
+.adminHeader,
+.adminItem {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.adminLogin {
+  max-width: 420px;
+  margin: 12vh auto 0;
+  padding: 20px;
+}
+
+.adminLogin h1,
+.adminHeader h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.adminLogin form,
+.adminLogin label,
+.adminHeader,
+.adminHeaderActions,
+.adminActions {
+  display: flex;
+  gap: 12px;
+}
+
+.adminLogin form,
+.adminLogin label {
+  flex-direction: column;
+}
+
+.adminHeader {
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.adminHeader a {
+  color: var(--sv-red);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.adminHeader p,
+.adminItem p,
+.adminItem small {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.adminTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.adminTabs button,
+.adminHeaderActions button,
+.adminActions button,
+.adminLogin button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.adminTabs button {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.adminTabs button.active {
+  background: var(--sv-red);
+  color: #ffffff;
+}
+
+.adminHeaderActions .ghost {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.adminQueue {
+  display: grid;
+  gap: 10px;
+}
+
+.adminItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 14px;
+}
+
+.adminItem span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.adminItem h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+}
+
+.adminActions {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.adminActions .dangerAction {
+  background: #b91c1c;
+}
+
+.adminError,
+.adminNotice,
+.adminEmpty {
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 800;
+}
+
+.adminError {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.adminNotice {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.adminEmpty {
+  background: #ffffff;
+  color: #4b5563;
+}
+
 fieldset {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -860,6 +1035,40 @@ label,
   padding: 12px 0 0;
   border-top: 1px solid var(--line);
   background: var(--surface-strong);
+}
+
+@media (min-width: 900px) {
+  .quickReport {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .quickReport > header,
+  .quickReport > .selectedPlace,
+  .quickReport > .fieldGroup,
+  .quickReport > .inlineFields,
+  .quickReport > .captchaField,
+  .quickReport > .formError,
+  .quickReport > .actions {
+    grid-column: 1 / -1;
+  }
+
+  .quickReport > label {
+    grid-column: 1;
+  }
+
+  .quickReport > .typeGrid,
+  .quickReport > .optionalDetails {
+    grid-column: 2;
+  }
+
+  .quickReport > .peopleEditor {
+    grid-column: 1;
+    align-self: start;
+  }
+
+  .quickReport > .optionalDetails {
+    align-self: start;
+  }
 }
 
 .ghost {
@@ -1434,6 +1643,18 @@ label,
 }
 
 @media (max-width: 720px) {
+  .scrim {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: min(92dvh, 900px);
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -22px 54px rgba(15, 23, 42, 0.26);
+  }
+
   .topbar {
     grid-template-columns: 1fr;
   }
@@ -1526,6 +1747,131 @@ label,
 .signalShell .fallbackMap {
   bottom: 54px;
   height: auto;
+}
+
+.mapCanvas .atlas-popup {
+  z-index: 40 !important;
+  filter: drop-shadow(0 14px 26px rgba(15, 23, 42, 0.2));
+}
+
+.mapCanvas .atlas-popup-content {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.mapCanvas .atlas-popup-tip {
+  border-top-color: #ffffff !important;
+}
+
+.mapPopupCard {
+  width: 292px;
+  max-width: min(292px, calc(100vw - 36px));
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #172033;
+  font-size: 13px;
+  line-height: 1.25;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.mapPopupCard strong {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.mapPopupCard > span {
+  width: fit-content;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.mapPopupCard.orange > span {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.mapPopupCard.purple > span {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.mapPopupCard.gold > span {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.mapPopupCard.green > span {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.mapPopupCard p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mapPopupCard div {
+  display: grid;
+  grid-template-columns: repeat(3, max-content) 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.mapPopupCard small {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e6edf5;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mapPopupCard small svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: #dc2626;
+  stroke: currentColor;
+}
+
+.mapPopupAction {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 34px;
+  min-width: 0;
+  width: auto;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .signalShell .fabStack {
@@ -2327,6 +2673,7 @@ svg {
   font-size: 14px;
   font-weight: 800;
   line-height: 1.4;
+  pointer-events: none;
 }
 
 .feedShell {

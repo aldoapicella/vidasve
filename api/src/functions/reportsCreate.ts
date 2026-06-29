@@ -5,16 +5,17 @@ import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { validateCaptcha } from "../lib/captcha.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
-import { encryptText, hashSecret, randomBase64Url } from "../lib/crypto.js";
+import { encryptText, hashSecret, randomBase64Url, verifyHmacToken } from "../lib/crypto.js";
 import { areaKeyForPoint, geoCell, parseAllowedBboxes, pointInAllowedBboxes, smallBboxAround } from "../lib/geo.js";
 import { checkRateLimits } from "../lib/rateLimit.js";
 import { duplicateCodes, makeEvent, makeReport, recalculateReport } from "../lib/reportLogic.js";
-import { normalizeContact, publicReport } from "../lib/sanitize.js";
+import { isPublicReport, normalizeContact, publicReport } from "../lib/sanitize.js";
 import { getStore } from "../lib/store.js";
 import { honeypotFilled, parseCreateReportInput, validateCreateReport } from "../lib/validation.js";
+import type { Report } from "../lib/types.js";
 
 app.http("reportsCreate", {
-  route: "reports",
+  route: "api/reports",
   authLevel: "anonymous",
   methods: ["GET", "POST", "OPTIONS"],
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
@@ -25,8 +26,13 @@ app.http("reportsCreate", {
       const statuses = splitParam(request.query.get("status"));
       const since = request.query.get("since") ?? undefined;
       const limit = 500;
+      if (request.query.get("view") === "map") {
+        const items = await getStore().listMapReports({ bbox, priorities, statuses, since, limit });
+        return json(request, 200, { items, truncated: items.length >= limit, limit });
+      }
       const items = await getStore().listReports({ bbox, priorities, statuses, since, limit });
-      return json(request, 200, { items: items.map(publicReport), truncated: items.length >= limit, limit });
+      const visible = items.filter(isPublicReport);
+      return json(request, 200, { items: visible.map(publicReport), truncated: items.length >= limit, limit });
     }
 
     const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -34,6 +40,16 @@ app.http("reportsCreate", {
     const secret = env("APP_HMAC_SECRET", "dev-secret-change-me");
     const piiKey = env("PII_ENCRYPTION_KEY", secret);
     const input = parseCreateReportInput(rawBody);
+
+    if (input.clientMutationId) {
+      const existing = await store.getReportByClientMutationId(input.clientMutationId);
+      if (existing) {
+        if (!input.ownerToken || !verifyHmacToken(secret, input.ownerToken, existing.ownerTokenHash)) {
+          return json(request, 409, { ok: false, error: "duplicate_mutation" });
+        }
+        return reportCreatedResponse(request, existing, input.ownerToken, 200);
+      }
+    }
 
     if (honeypotFilled(rawBody)) {
       await store.logSecurityEvent({ type: "honeypot", action: "create_report" });
@@ -60,9 +76,10 @@ app.http("reportsCreate", {
     const rate = await checkRateLimits(store, "create_report", { ...actor, geoCell: reportGeoCell });
     if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
 
-    const ownerToken = randomBase64Url(32);
+    const ownerToken = validClientToken(input.ownerToken) ? input.ownerToken : randomBase64Url(32);
     const contact = normalizeContact(input.reporterContact);
-    const nearby = input.location ? await store.listReports({ bbox: smallBboxAround(input.location), limit: 50 }) : [];
+    const contactHash = contact ? hashSecret(secret, contact) : undefined;
+    const nearby = input.location ? (await store.listReports({ bbox: smallBboxAround(input.location), limit: 50 })).filter(isPublicReport) : [];
     const now = new Date();
     const report = makeReport(input, {
       id: randomUUID(),
@@ -71,8 +88,9 @@ app.http("reportsCreate", {
       areaKey,
       geoCell: reportGeoCell,
       reporterContactEncrypted: contact ? encryptText(piiKey, contact) : undefined,
-      contactHash: contact ? hashSecret(secret, contact) : undefined,
-      possibleDuplicateCodes: duplicateCodes(input, nearby),
+      contactHash,
+      possibleDuplicateCodes: duplicateCodes(input, nearby, contactHash),
+      clientMutationId: input.clientMutationId,
       now
     });
     const event = makeEvent({
@@ -88,17 +106,25 @@ app.http("reportsCreate", {
     const updated = recalculateReport(report, [event], now);
     await store.updateReport(updated);
 
-    const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/caso/${report.code}`;
-    return json(request, 201, {
-      ok: true,
-      code: report.code,
-      publicUrl,
-      ownerEditUrl: `${publicUrl}#ownerToken=${ownerToken}`,
-      report: publicReport(updated),
-      message: "Reporte recibido. Guarda el enlace privado para actualizar o marcar como resuelto."
-    });
+    return reportCreatedResponse(request, updated, ownerToken, 201);
   }
 });
+
+function reportCreatedResponse(request: HttpRequest, report: Report, ownerToken: string, status: number): HttpResponseInit {
+  const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/caso/${report.code}`;
+  return json(request, status, {
+    ok: true,
+    code: report.code,
+    publicUrl,
+    ownerEditUrl: `${publicUrl}#ownerToken=${ownerToken}`,
+    report: publicReport(report),
+    message: "Reporte recibido. Guarda el enlace privado para actualizar o marcar como resuelto."
+  });
+}
+
+function validClientToken(value?: string): value is string {
+  return Boolean(value && /^[A-Za-z0-9_-]{32,160}$/.test(value));
+}
 
 async function uniqueCode(): Promise<string> {
   return `VE-${randomBase64Url(4).replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 4).padEnd(4, "X")}`;
