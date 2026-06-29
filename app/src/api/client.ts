@@ -258,12 +258,30 @@ function apiMediaUrl(value: string): string | undefined {
   return `${API_BASE}${value.slice(4)}`;
 }
 
+function publicImageUrl(value: string): string | undefined {
+  if (!value) return undefined;
+  if (value.startsWith("/api/")) return apiMediaUrl(value);
+  if (isProxyableImageUrl(value)) return `${API_BASE}/external-image?url=${encodeURIComponent(value)}`;
+  return value;
+}
+
+function isProxyableImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    return url.protocol === "https:" && (hostname === "venezuelatebusca.com" || hostname.endsWith(".supabase.co"));
+  } catch {
+    return false;
+  }
+}
+
 function normalizePerson(person: PublicPerson, index: number): PublicPerson {
   const source = (person ?? {}) as Partial<PublicPerson>;
   return {
     ...source,
     id: text(source.id) || `person-${index + 1}`,
     displayName: text(source.displayName) || "Persona sin identificar",
+    photoUrl: publicImageUrl(text(source.photoUrl)),
     status: oneOf(source.status, ["trapped", "missing", "signals_of_life", "found", "needs_verification"], "needs_verification")
   };
 }

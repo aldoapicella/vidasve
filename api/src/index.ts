@@ -7,6 +7,7 @@ import "./functions/reportsCreate.js";
 import "./functions/search.js";
 import "./functions/posts.js";
 import "./functions/media.js";
+import "./functions/externalImage.js";
 import "./functions/reportGet.js";
 import "./functions/reportEvents.js";
 import "./functions/reportOwnerEvents.js";
