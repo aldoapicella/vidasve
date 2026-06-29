@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { validateCaptcha } from "../src/lib/captcha.js";
 
@@ -45,5 +46,12 @@ test("validateCaptcha rejects text fallback when Turnstile is configured", async
   } finally {
     if (previous === undefined) delete process.env.TURNSTILE_SECRET_KEY;
     else process.env.TURNSTILE_SECRET_KEY = previous;
+  }
+});
+
+test("public update endpoints require human captcha", () => {
+  for (const file of ["reportEvents.ts", "reportOwnerEvents.ts", "posts.ts"]) {
+    const source = readFileSync(`src/functions/${file}`, "utf8");
+    assert.match(source, /validateCaptcha\(input\)/, file);
   }
 });

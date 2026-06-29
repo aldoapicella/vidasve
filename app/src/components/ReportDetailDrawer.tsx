@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
-import type { EventType, PersonStatus, PublicEvent, PublicPerson, PublicReport } from "../types";
+import { CaptchaField, captchaFormReady, captchaPayload } from "./CaptchaField";
+import type { EventType, PersonStatus, PublicConfig, PublicEvent, PublicPerson, PublicReport } from "../types";
 
 export function ReportDetailDrawer({
   report,
+  config,
   events,
   ownerToken,
   onClose,
@@ -10,11 +12,12 @@ export function ReportDetailDrawer({
   onAddPerson
 }: {
   report: PublicReport;
+  config: PublicConfig;
   events: PublicEvent[];
   ownerToken?: string;
   onClose: () => void;
-  onEvent: (type: EventType, message: string, reason?: string) => Promise<void>;
-  onAddPerson: (person: PublicPerson) => Promise<void>;
+  onEvent: (type: EventType, message: string, reason?: string, captcha?: Record<string, unknown>) => Promise<void>;
+  onAddPerson: (person: PublicPerson, captcha?: Record<string, unknown>) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<EventType | null>(null);
@@ -23,6 +26,8 @@ export function ReportDetailDrawer({
   const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [personBusy, setPersonBusy] = useState(false);
   const [personError, setPersonError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
   const people = report.persons ?? [];
   const riskFlags = report.riskFlags ?? [];
   const possibleDuplicateCodes = report.possibleDuplicateCodes ?? [];
@@ -34,11 +39,19 @@ export function ReportDetailDrawer({
   const risk = riskLabel(report.priority);
 
   async function submit(type: EventType, fallback: string, reason?: string) {
+    const form = document.getElementById("case-update-captcha") as HTMLFormElement | null;
+    const captchaForm = form ? new FormData(form) : undefined;
+    if (!captchaFormReady(config, captchaToken, captchaForm)) {
+      setError("Completa la verificación humana.");
+      return;
+    }
     setBusy(type);
     setError(null);
     try {
-      await onEvent(type, message || fallback, reason);
+      await onEvent(type, message || fallback, reason, captchaPayload(config, captchaToken, captchaForm));
       setMessage("");
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar la actualización.");
     } finally {
@@ -81,11 +94,11 @@ export function ReportDetailDrawer({
     void submit("risk_update", reason, reason);
   }
 
-  async function submitPerson(person: PublicPerson) {
+  async function submitPerson(person: PublicPerson, captcha?: Record<string, unknown>) {
     setPersonBusy(true);
     setPersonError(null);
     try {
-      await onAddPerson(person);
+      await onAddPerson(person, captcha);
       setAddPersonOpen(false);
     } catch (err) {
       setPersonError(err instanceof Error ? err.message : "No se pudo agregar la persona.");
@@ -193,6 +206,9 @@ export function ReportDetailDrawer({
 
       <section className="caseSection updateComposer">
         <h2>Agregar información pública</h2>
+        <form id="case-update-captcha">
+          <CaptchaField key={captchaReset} config={config} onToken={setCaptchaToken} />
+        </form>
         <label>
           Nueva información
           <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} maxLength={900} placeholder="Qué viste, dónde, cuándo y cómo puede verificarse." />
@@ -254,10 +270,11 @@ export function ReportDetailDrawer({
       </section>
       {addPersonOpen ? (
         <AddPersonModal
+          config={config}
           busy={personBusy}
           error={personError}
           onClose={() => setAddPersonOpen(false)}
-          onSubmit={(person) => void submitPerson(person)}
+          onSubmit={(person, captcha) => void submitPerson(person, captcha)}
         />
       ) : null}
     </aside>
@@ -265,21 +282,28 @@ export function ReportDetailDrawer({
 }
 
 function AddPersonModal({
+  config,
   busy,
   error,
   onClose,
   onSubmit
 }: {
+  config: PublicConfig;
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (person: PublicPerson) => void;
+  onSubmit: (person: PublicPerson, captcha?: Record<string, unknown>) => void;
 }) {
   const [localError, setLocalError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    if (!captchaFormReady(config, captchaToken, form)) {
+      setLocalError("Completa la verificación humana.");
+      return;
+    }
     const displayName = String(form.get("displayName") ?? "").trim();
     const lastKnownPlace = String(form.get("lastKnownPlace") ?? "").trim();
     const description = String(form.get("description") ?? "").trim();
@@ -288,15 +312,18 @@ function AddPersonModal({
       return;
     }
     const age = Number(form.get("age"));
-    onSubmit({
-      id: crypto.randomUUID(),
-      displayName: displayName || "Persona sin identificar",
-      ...(Number.isInteger(age) && age >= 0 && age <= 120 ? { age } : {}),
-      status: String(form.get("status") ?? "needs_verification") as PersonStatus,
-      lastKnownPlace,
-      lastContactText: String(form.get("lastContactText") ?? "").trim(),
-      description
-    });
+    onSubmit(
+      {
+        id: crypto.randomUUID(),
+        displayName: displayName || "Persona sin identificar",
+        ...(Number.isInteger(age) && age >= 0 && age <= 120 ? { age } : {}),
+        status: String(form.get("status") ?? "needs_verification") as PersonStatus,
+        lastKnownPlace,
+        lastContactText: String(form.get("lastContactText") ?? "").trim(),
+        description
+      },
+      captchaPayload(config, captchaToken, form)
+    );
   }
 
   return (
@@ -342,6 +369,7 @@ function AddPersonModal({
           Detalle público
           <input name="description" maxLength={240} />
         </label>
+        <CaptchaField config={config} onToken={setCaptchaToken} />
         {localError || error ? <p className="formError" role="alert">{localError || error}</p> : null}
         <div className="actions">
           <button type="submit" disabled={busy}>{busy ? "Agregando..." : "Agregar persona"}</button>

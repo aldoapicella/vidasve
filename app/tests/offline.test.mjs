@@ -23,7 +23,7 @@ test("outbox caps at 20 items and drops expired entries", () => {
   assert.equal(items.at(-1).code, "VE-24");
 });
 
-test("outbox strips stale report verification fields", () => {
+test("outbox drops stale token captcha items", () => {
   const storage = new Map();
   globalThis.localStorage = {
     getItem: (key) => storage.get(key) ?? null,
@@ -35,6 +35,14 @@ test("outbox strips stale report verification fields", () => {
       id: "report",
       kind: "create_report",
       payload: { addressText: "x", reporterContact: "secret", captchaToken: "expired" },
+      createdAt: new Date().toISOString(),
+      attempts: 0
+    },
+    {
+      id: "post",
+      kind: "post",
+      code: "VE-1",
+      payload: { text: "x", captchaToken: "expired" },
       createdAt: new Date().toISOString(),
       attempts: 0
     }

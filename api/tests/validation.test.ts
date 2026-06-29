@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseCreateReportInput, parsePublicEvent, validateCreateReport } from "../src/lib/validation.js";
+import { parseCreateReportInput, parseOwnerEvent, parsePublicEvent, parsePublicPost, validateCreateReport } from "../src/lib/validation.js";
 
 test("parseCreateReportInput sanitizes public people and clamps invalid age/status", () => {
   const input = parseCreateReportInput({
@@ -36,6 +36,7 @@ test("parseCreateReportInput sanitizes public people and clamps invalid age/stat
 test("parsePublicEvent parses a public person addition", () => {
   const event = parsePublicEvent({
     type: "add_person",
+    captchaText: "VIDA",
     person: {
       displayName: "<Ana>",
       age: "34",
@@ -45,10 +46,19 @@ test("parsePublicEvent parses a public person addition", () => {
   });
 
   assert.equal(event.type, "add_person");
+  assert.equal(event.captchaText, "VIDA");
   assert.equal(event.person?.displayName, "Ana");
   assert.equal(event.person?.age, 34);
   assert.equal(event.person?.floorOrUnit, "Piso 3");
   assert.equal(event.person?.status, "signals_of_life");
+});
+
+test("update parsers keep human captcha fields", () => {
+  const owner = parseOwnerEvent({ type: "owner_resolved", ownerToken: "owner", captchaToken: "turnstile-token" });
+  const post = parsePublicPost({ text: "Actualizacion", captchaText: "VIDA" });
+
+  assert.equal(owner.captchaToken, "turnstile-token");
+  assert.equal(post.captchaText, "VIDA");
 });
 
 test("validateCreateReport validates report fields separately from captcha provider", () => {

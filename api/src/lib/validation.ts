@@ -140,6 +140,8 @@ export function parsePublicEvent(body: unknown): {
   message: string;
   reason: string;
   contact?: string;
+  captchaText?: string;
+  captchaToken?: string;
   deviceId?: string;
   person?: PublicPerson;
   challenge: CreateReportInput["challenge"];
@@ -152,6 +154,8 @@ export function parsePublicEvent(body: unknown): {
     message: sanitizeText(value.message, 900),
     reason: sanitizeText(value.reason, 80),
     contact: sanitizeText(value.contact, 160),
+    captchaText: sanitizeText(value.captchaText, 20),
+    captchaToken: sanitizeText(value.captchaToken, 3000),
     deviceId: sanitizeText(value.deviceId, 120),
     clientMutationId: sanitizeText(value.clientMutationId, 120),
     person: type === "add_person" ? parsePerson(value.person) : undefined,
@@ -159,7 +163,7 @@ export function parsePublicEvent(body: unknown): {
   };
 }
 
-export function parseOwnerEvent(body: unknown): { type: EventType; message: string; reason: string; ownerToken: string; deviceId?: string; clientMutationId?: string; challenge: CreateReportInput["challenge"] } {
+export function parseOwnerEvent(body: unknown): { type: EventType; message: string; reason: string; ownerToken: string; captchaText?: string; captchaToken?: string; deviceId?: string; clientMutationId?: string; challenge: CreateReportInput["challenge"] } {
   const value = asRecord(body);
   const type = OWNER_EVENT_TYPES.has(value.type as EventType) ? (value.type as EventType) : "owner_add_info";
   return {
@@ -167,6 +171,8 @@ export function parseOwnerEvent(body: unknown): { type: EventType; message: stri
     message: sanitizeText(value.message, 900),
     reason: sanitizeText(value.reason, 80),
     ownerToken: sanitizeText(value.ownerToken, 240),
+    captchaText: sanitizeText(value.captchaText, 20),
+    captchaToken: sanitizeText(value.captchaToken, 3000),
     deviceId: sanitizeText(value.deviceId, 120),
     clientMutationId: sanitizeText(value.clientMutationId, 120),
     challenge: value.challenge as CreateReportInput["challenge"]
@@ -181,6 +187,8 @@ export function parsePublicPost(body: unknown): {
   thumbnailUrl?: string;
   tags: string[];
   contact?: string;
+  captchaText?: string;
+  captchaToken?: string;
   deviceId?: string;
   clientMutationId?: string;
   challenge: ChallengeSubmission;
@@ -194,6 +202,8 @@ export function parsePublicPost(body: unknown): {
     thumbnailUrl: sanitizeText(value.thumbnailUrl, 500),
     tags: Array.isArray(value.tags) ? value.tags.map((tag) => sanitizeText(tag, 40)).filter(Boolean).slice(0, 8) : [],
     contact: sanitizeText(value.contact, 160),
+    captchaText: sanitizeText(value.captchaText, 20),
+    captchaToken: sanitizeText(value.captchaToken, 3000),
     deviceId: sanitizeText(value.deviceId, 120),
     clientMutationId: sanitizeText(value.clientMutationId, 120),
     challenge: value.challenge as ChallengeSubmission

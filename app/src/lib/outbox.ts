@@ -21,7 +21,7 @@ export function listOutbox(): OutboxItem[] {
     const fresh = items
       .filter((item) => Date.now() - Date.parse(item.createdAt) < MAX_AGE_MS)
       .filter((item) => !(item.kind === "event" && item.ownerToken))
-      .filter((item) => !(item.kind === "create_report" && item.payload.captchaToken))
+      .filter((item) => !item.payload.captchaToken)
       .map(safeItem)
       .slice(0, MAX_ITEMS);
     if (JSON.stringify(fresh) !== before) saveOutbox(fresh);

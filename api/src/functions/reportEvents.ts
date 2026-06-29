@@ -1,5 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { actorFromRequest } from "../lib/actor.js";
+import { validateCaptcha } from "../lib/captcha.js";
 import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { env } from "../lib/config.js";
 import { json, options } from "../lib/cors.js";
@@ -32,6 +33,8 @@ app.http("reportEvents", {
     const challenge = verifyChallenge(input.challenge, action, secret);
     if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
     if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
+    const captchaError = await validateCaptcha(input);
+    if (captchaError) return json(request, 400, { ok: false, error: captchaError });
 
     const actor = actorFromRequest(request, secret, { deviceId: input.deviceId, contact: input.contact });
     const rate = await checkRateLimits(store, action, {

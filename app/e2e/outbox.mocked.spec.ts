@@ -30,15 +30,18 @@ test.beforeEach(async ({ page }) => {
   } }));
   await page.route("**/api/reports**", (route) => {
     if (route.request().method() !== "GET") return route.fallback();
+    if (new URL(route.request().url()).pathname !== "/api/reports") return route.fallback();
     return route.fulfill({ json: { items: [report], truncated: false, limit: 500 } });
   });
+  await page.route("**/api/reports/VE-MOCK1", (route) => route.fulfill({ json: { report, events: [] } }));
   await page.route("**/api/posts?**", (route) => route.fulfill({ json: { items: [], truncated: false, limit: 50 } }));
   await page.route("**/api/challenge", (route) => {
     if (networkDown) return route.abort("failed");
+    const body = JSON.parse(route.request().postData() || "{}") as { action?: string };
     return route.fulfill({ json: {
       nonce: "mock",
       issuedAt: new Date().toISOString(),
-      action: "create_report",
+      action: body.action || "create_report",
       difficulty: 0,
       signature: "mock"
     } });
@@ -59,6 +62,16 @@ test.beforeEach(async ({ page }) => {
     if (route.request().method() !== "POST") return route.fallback();
     if (networkDown) return route.abort("failed");
     await route.fulfill({ json: { ok: true, post: { id: "p1", reportCode: report.code, text: "ok", tags: [], report }, report } });
+  });
+  await page.route("**/api/reports/*/events", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const body = JSON.parse(route.request().postData() || "{}") as { captchaText?: string };
+    if (body.captchaText !== "VIDA") return route.fulfill({ status: 400, json: { ok: false, error: "captcha_failed" } });
+    await route.fulfill({ json: {
+      ok: true,
+      report,
+      event: { id: "e1", reportId: report.id, reportCode: report.code, type: "add_info", message: "Dato nuevo", public: true, abuseScore: 0, createdAt: new Date().toISOString() }
+    } });
   });
 });
 
@@ -93,11 +106,21 @@ test("file post offline asks for connection instead of queueing media", async ({
     buffer: Buffer.from("mock")
   });
   await page.getByLabel("Texto público").fill("Flyer con archivo");
+  await page.getByLabel("Verificación humana").fill("VIDA");
   networkDown = true;
   await page.getByRole("button", { name: "Publicar", exact: true }).click();
 
   await expect(page.getByText("El archivo requiere conexión. Publica el texto ahora o reintenta cuando tengas internet.")).toBeVisible();
   await expect(outboxCount(page)).resolves.toBe(0);
+});
+
+test("case updates send human captcha", async ({ page }) => {
+  await page.goto("/caso/VE-MOCK1");
+  await page.getByLabel("Verificación humana").fill("VIDA");
+  await page.getByLabel("Nueva información").fill("Dato nuevo");
+  await page.getByRole("button", { name: "Agregar información" }).click();
+
+  await expect(page.getByText("Dato nuevo")).toBeVisible();
 });
 
 async function outboxCount(page: Page): Promise<number> {

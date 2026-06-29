@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createEvent, createPost, createReport, getConfig, getReport, isNetworkError, isRetryableError, listPosts, listReports, searchPublic } from "./api/client";
+import { CaptchaField, captchaFormReady, captchaPayload, captchaReady, usesTurnstile } from "./components/CaptchaField";
 import { CreateReportModal, type CreatedReport } from "./components/CreateReportModal";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { ReportDetailDrawer } from "./components/ReportDetailDrawer";
@@ -483,15 +484,16 @@ export function App() {
     }
   }
 
-  async function sendEvent(type: Parameters<typeof createEvent>[1], message: string, reason?: string) {
+  async function sendEvent(type: Parameters<typeof createEvent>[1], message: string, reason?: string, captcha?: Record<string, unknown>) {
     if (!selected) return;
-    const payload = { message, reason };
+    const payload = { message, reason, ...captcha };
     try {
       const response = await createEvent(selected.code, type, payload, selectedOwnerToken);
       setSelected(response.report);
       if (response.event.public) setEvents((current) => [...current, response.event]);
     } catch (err) {
       if (!isNetworkError(err)) throw err;
+      if (usesTurnstile(config)) throw new Error("La verificación humana requiere conexión. Reintenta cuando vuelva la red.");
       if (selectedOwnerToken) throw new Error("La acción de propietario requiere conexión. Reintenta cuando vuelva la red.");
       enqueueOutbox({ kind: "event", code: selected.code, type, payload, ownerToken: selectedOwnerToken });
       refreshOutbox();
@@ -499,7 +501,7 @@ export function App() {
     }
   }
 
-  async function addPerson(person: PublicPerson) {
+  async function addPerson(person: PublicPerson, captcha?: Record<string, unknown>) {
     if (!selected) return;
     if (DEMO_MODE) {
       setSelected(addPersonToLocalReport(selected, person));
@@ -509,7 +511,8 @@ export function App() {
     }
     const payload = {
       person,
-      message: `Persona agregada: ${person.displayName}`
+      message: `Persona agregada: ${person.displayName}`,
+      ...captcha
     };
     try {
       const response = await createEvent(selected.code, "add_person", payload);
@@ -517,6 +520,7 @@ export function App() {
       if (response.event.public) setEvents((current) => [...current, response.event]);
     } catch (err) {
       if (!isNetworkError(err)) throw err;
+      if (usesTurnstile(config)) throw new Error("La verificación humana requiere conexión. Reintenta cuando vuelva la red.");
       enqueueOutbox({ kind: "event", code: selected.code, type: "add_person", payload });
       refreshOutbox();
       showToast("Persona guardada pendiente de conexión.");
@@ -530,6 +534,7 @@ export function App() {
       showToast("Publicación guardada.");
     } catch (err) {
       if (!isNetworkError(err)) throw err;
+      if (usesTurnstile(config)) throw new Error("La verificación humana requiere conexión. Reintenta cuando vuelva la red.");
       const file = payload.file instanceof File && payload.file.size > 0 ? payload.file : undefined;
       if (file) throw new Error("El archivo requiere conexión. Publica el texto ahora o reintenta cuando tengas internet.");
       enqueueOutbox({ kind: "post", code, payload });
@@ -700,6 +705,7 @@ export function App() {
         {uploadOpen ? (
           <UploadPublicationModal
             enabled={config.features.mediaUploads}
+            config={config}
             reports={contentReports}
             onClose={() => setUploadOpen(false)}
             onSubmit={publishPost}
@@ -812,6 +818,7 @@ export function App() {
       {uploadOpen ? (
         <UploadPublicationModal
           enabled={config.features.mediaUploads}
+          config={config}
           reports={contentReports}
           onClose={() => setUploadOpen(false)}
           onSubmit={publishPost}
@@ -821,10 +828,11 @@ export function App() {
       {selected ? (
         <ReportDetailDrawer
           report={selected}
+          config={config}
           events={events}
           ownerToken={selectedOwnerToken}
           onClose={closeDetail}
-          onEvent={(type, message, reason) => sendEvent(type, message, reason)}
+          onEvent={(type, message, reason, captcha) => sendEvent(type, message, reason, captcha)}
           onAddPerson={addPerson}
         />
       ) : personRoute ? (
@@ -1495,11 +1503,13 @@ function ReportBadge({ report }: { report: PublicReport }) {
 
 function UploadPublicationModal({
   enabled,
+  config,
   reports,
   onClose,
   onSubmit
 }: {
   enabled: boolean;
+  config: PublicConfig;
   reports: PublicReport[];
   onClose: () => void;
   onSubmit: (code: string, payload: Record<string, unknown>) => Promise<void>;
@@ -1508,22 +1518,31 @@ function UploadPublicationModal({
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [reportCode, setReportCode] = useState(reports[0]?.code ?? "");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
   const selectedReport = reports.find((report) => report.code === reportCode);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!reportCode) return;
+    const form = new FormData(event.currentTarget);
+    if (!captchaFormReady(config, captchaToken, form)) {
+      setError("Completa la verificación humana.");
+      return;
+    }
     setBusy(true);
     setError(null);
-    const form = new FormData(event.currentTarget);
     try {
       await onSubmit(reportCode, {
         text: form.get("text"),
         postType: form.get("postType"),
         personId: form.get("personId") || undefined,
         tags: form.getAll("tags"),
-        file: form.get("file")
+        file: form.get("file"),
+        ...captchaPayload(config, captchaToken, form)
       });
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo publicar.");
@@ -1598,6 +1617,7 @@ function UploadPublicationModal({
               Texto público
               <textarea name="text" required rows={4} maxLength={900} placeholder="Nombre, ubicación, contexto, último contacto o texto del flyer." />
             </label>
+            <CaptchaField key={captchaReset} config={config} onToken={setCaptchaToken} />
             <p className="safetyNote">Esta información será visible públicamente para facilitar búsqueda, ayuda y rescate.</p>
           </>
         ) : (
@@ -1605,7 +1625,7 @@ function UploadPublicationModal({
         )}
         {error ? <p className="formError" role="alert">{error}</p> : null}
         <div className="actions stickyActions">
-          {reports.length ? <button type="submit" disabled={busy}>{busy ? "Publicando..." : "Publicar"}</button> : null}
+          {reports.length ? <button type="submit" disabled={busy || !captchaReady(config, captchaToken)}>{busy ? "Publicando..." : "Publicar"}</button> : null}
           <button className="ghost" type="button" onClick={onClose}>Cancelar</button>
         </div>
       </form>
