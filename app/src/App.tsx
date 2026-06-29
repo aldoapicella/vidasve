@@ -148,7 +148,7 @@ const FILTER_CHIPS = [
   { label: "Edificios", value: "buildings", tone: "purple" }
 ] as const;
 
-type HelpContact = { name: string; phones: string[]; note: string; source: string };
+type HelpContact = { name: string; phones?: string[]; emails?: string[]; note: string; source?: string };
 type HelpContactGroup = { title: string; items: HelpContact[] };
 type InfoPageData = {
   title: string;
@@ -189,6 +189,12 @@ const HELP_CONTACT_GROUPS: HelpContactGroup[] = [
       { name: "Cruz Roja Venezolana / socorristas", phones: ["0212-571-4713", "0212-571-4380"], note: "Socorristas y sede Caracas.", source: "https://cruzroja.ve/" },
       { name: "Fe y Alegría Venezuela", phones: ["0212-564-7423", "0212-563-1776", "0212-564-5013", "0212-563-2048"], note: "Red educativa y apoyo comunitario.", source: "https://www.feyalegria.org/venezuela/contactanos/" },
       { name: "MSF España", phones: ["+34 933-046-100"], note: "Contacto internacional de Médicos Sin Fronteras.", source: "https://www.msf.es/territorio/venezuela" }
+    ]
+  },
+  {
+    title: "Contacto de la plataforma",
+    items: [
+      { name: "Aldo Apicella", emails: ["aldoapicella@outlook.com"], note: "Contacto del proyecto VidasVE." }
     ]
   }
 ];
@@ -891,9 +897,10 @@ function HelpContacts({ groups }: { groups: HelpContactGroup[] }) {
                   <p>{item.note}</p>
                 </div>
                 <div className="helpPhones">
-                  {item.phones.map((phone) => <a key={phone} href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>)}
+                  {item.phones?.map((phone) => <a key={phone} href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>)}
+                  {item.emails?.map((email) => <a key={email} href={`mailto:${email}`}>{email}</a>)}
                 </div>
-                <a className="sourceLink" href={item.source} target="_blank" rel="noreferrer">Fuente</a>
+                {item.source ? <a className="sourceLink" href={item.source} target="_blank" rel="noreferrer">Fuente</a> : null}
               </li>
             ))}
           </ul>
