@@ -1660,7 +1660,12 @@ function AppFooter() {
       <a href="/aviso-legal">Aviso legal</a>
       <a href="/privacidad">Privacidad</a>
       <a href="/tips-seguridad">Tips de seguridad</a>
-      <span>Canales oficiales</span>
+      <div className="initiativeLinks" aria-label="Mira otras iniciativas">
+        <span>Mira otras iniciativas</span>
+        <a href="https://build4venezuela.com/" target="_blank" rel="noreferrer">Build4Venezuela</a>
+        <a href="https://build4venezuela.com/en/p/vidas-ve" target="_blank" rel="noreferrer">Difunde</a>
+      </div>
+      <span className="officialChannels">Canales oficiales</span>
       <span className="footerChannels" aria-label="Canales sociales">WA TG IG X</span>
     </footer>
   );
