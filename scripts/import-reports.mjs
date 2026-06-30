@@ -22,7 +22,7 @@ for (const row of parseCsv(readFileSync(file, "utf8"))) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(body)}`);
-  console.log(JSON.stringify({ code: body.code, ownerEditUrl: body.ownerEditUrl }));
+  console.log(JSON.stringify(adminToken ? { code: body.code, publicUrl: body.publicUrl } : { code: body.code, ownerEditUrl: body.ownerEditUrl }));
   await new Promise((resolve) => setTimeout(resolve, 300));
 }
 
