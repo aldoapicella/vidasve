@@ -190,12 +190,6 @@ const HELP_CONTACT_GROUPS: HelpContactGroup[] = [
       { name: "Fe y Alegría Venezuela", phones: ["0212-564-7423", "0212-563-1776", "0212-564-5013", "0212-563-2048"], note: "Red educativa y apoyo comunitario.", source: "https://www.feyalegria.org/venezuela/contactanos/" },
       { name: "MSF España", phones: ["+34 933-046-100"], note: "Contacto internacional de Médicos Sin Fronteras.", source: "https://www.msf.es/territorio/venezuela" }
     ]
-  },
-  {
-    title: "Contacto de la plataforma",
-    items: [
-      { name: "Aldo Apicella", emails: ["aldoapicella@outlook.com"], note: "Contacto del proyecto VidasVE." }
-    ]
   }
 ];
 
@@ -1665,8 +1659,7 @@ function AppFooter() {
         <a href="https://build4venezuela.com/" target="_blank" rel="noreferrer">Build4Venezuela</a>
         <a href="https://build4venezuela.com/en/p/vidas-ve" target="_blank" rel="noreferrer">Difunde</a>
       </div>
-      <span className="officialChannels">Canales oficiales</span>
-      <span className="footerChannels" aria-label="Canales sociales">WA TG IG X</span>
+      <a className="footerContact" href="mailto:aldoapicella@outlook.com">Contacto: Aldo Apicella</a>
     </footer>
   );
 }

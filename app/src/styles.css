@@ -2580,14 +2580,10 @@ svg {
   font-weight: 800;
 }
 
-.officialChannels {
-  margin-left: 4px;
-}
-
-.footerChannels {
-  letter-spacing: 0;
-  word-spacing: 10px;
-  font-weight: 900;
+.footerContact {
+  min-width: max-content;
+  color: #1f2937;
+  font-weight: 800;
 }
 
 @media (max-width: 1180px) {
@@ -3831,7 +3827,6 @@ button,
 .publicMediaCard span,
 .flyerCard small,
 .timeline span,
-.footerChannels,
 .toast {
   font-weight: 700;
 }
