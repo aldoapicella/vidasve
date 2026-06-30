@@ -1,18 +1,23 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 const apiBase = (process.env.API_BASE_URL || "http://127.0.0.1:7071/api").replace(/\/$/, "");
+const adminToken = process.env.ADMIN_API_TOKEN || "";
 const file = process.argv[2];
 if (!file) {
-  console.error("usage: API_BASE_URL=https://.../api npm run import:reports -- verified.csv");
+  console.error("usage: API_BASE_URL=https://.../api [ADMIN_API_TOKEN=...] npm run import:reports -- verified.csv");
   process.exit(1);
 }
 
 for (const row of parseCsv(readFileSync(file, "utf8"))) {
   const payload = toReport(row);
-  const challenge = await challengeFor("create_report");
+  const challenge = adminToken ? {} : await challengeFor("create_report");
   const response = await fetch(`${apiBase}/reports`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+    },
     body: JSON.stringify({ ...payload, challenge })
   });
   const body = await response.json().catch(() => ({}));
@@ -32,6 +37,7 @@ function toReport(row) {
           displayName: row.personName,
           age: row.personAge ? Number(row.personAge) : undefined,
           status: row.personStatus || "needs_verification",
+          photoUrl: row.photoUrl || undefined,
           lastKnownPlace: row.lastKnownPlace || undefined,
           lastContactText: row.lastContactText || undefined
         }]
@@ -53,8 +59,14 @@ function toReport(row) {
     riskFlags: row.riskFlags ? row.riskFlags.split("|").filter(Boolean) : [],
     sourceType: row.sourceType || "other",
     reporterNamePublic: row.reporterNamePublic || undefined,
-    reporterContact: row.reporterContact || undefined
+    reporterContact: row.reporterContact || undefined,
+    clientMutationId: row.clientMutationId || stableMutationId(row)
   };
+}
+
+function stableMutationId(row) {
+  const raw = [row.sourceType, row.sourceId, row.personName, row.addressText].filter(Boolean).join(":");
+  return raw ? `import:${createHash("sha256").update(raw).digest("hex").slice(0, 24)}` : undefined;
 }
 
 async function challengeFor(action) {

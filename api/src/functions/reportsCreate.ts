@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { app, type HttpRequest, type HttpResponseInit } from "@azure/functions";
+import { requireAdmin } from "../lib/adminAuth.js";
 import { actorFromRequest } from "../lib/actor.js";
 import { claimChallenge, verifyChallenge } from "../lib/challenge.js";
 import { validateCaptcha } from "../lib/captcha.js";
@@ -40,10 +41,16 @@ app.http("reportsCreate", {
     const secret = env("APP_HMAC_SECRET", "dev-secret-change-me");
     const piiKey = env("PII_ENCRYPTION_KEY", secret);
     const input = parseCreateReportInput(rawBody);
+    const admin = optionalAdmin(request);
+    if (admin.requested && !admin.ok) return admin.response;
 
     if (input.clientMutationId) {
       const existing = await store.getReportByClientMutationId(input.clientMutationId);
       if (existing) {
+        if (admin.ok) {
+          const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/caso/${existing.code}`;
+          return json(request, 200, { ok: true, code: existing.code, publicUrl, report: publicReport(existing), message: "Reporte existente." });
+        }
         if (!input.ownerToken || !verifyHmacToken(secret, input.ownerToken, existing.ownerTokenHash)) {
           return json(request, 409, { ok: false, error: "duplicate_mutation" });
         }
@@ -51,30 +58,34 @@ app.http("reportsCreate", {
       }
     }
 
-    if (honeypotFilled(rawBody)) {
+    if (!admin.ok && honeypotFilled(rawBody)) {
       await store.logSecurityEvent({ type: "honeypot", action: "create_report" });
       return json(request, 202, { ok: true, message: "Reporte recibido." });
     }
 
-    const challenge = verifyChallenge(input.challenge, "create_report", secret);
-    if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
-    if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
-
     const validationError = validateCreateReport(input);
     if (validationError) return json(request, 400, { ok: false, error: validationError });
-    const captchaError = await validateCaptcha(input);
-    if (captchaError) return json(request, 400, { ok: false, error: captchaError });
+    if (!admin.ok) {
+      const challenge = verifyChallenge(input.challenge, "create_report", secret);
+      if (!challenge.ok) return json(request, 400, { ok: false, error: challenge.error });
+      if (!(await claimChallenge(store, input.challenge))) return json(request, 400, { ok: false, error: "challenge_reused" });
+
+      const captchaError = await validateCaptcha(input);
+      if (captchaError) return json(request, 400, { ok: false, error: captchaError });
+    }
 
     const allowedBboxes = parseAllowedBboxes(env("ALLOWED_BBOXES_JSON"));
     if (input.location && !pointInAllowedBboxes(input.location, allowedBboxes)) {
       return json(request, 400, { ok: false, error: "outside_allowed_area" });
     }
 
-    const actor = actorFromRequest(request, secret, { deviceId: input.deviceId, contact: input.reporterContact });
+    const actor = admin.ok ? { hasOwnerToken: false, userAgentHash: admin.actorHash } : actorFromRequest(request, secret, { deviceId: input.deviceId, contact: input.reporterContact });
     const areaKey = areaKeyForPoint(input.location, allowedBboxes);
     const reportGeoCell = geoCell(input.location);
-    const rate = await checkRateLimits(store, "create_report", { ...actor, geoCell: reportGeoCell });
-    if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
+    if (!admin.ok) {
+      const rate = await checkRateLimits(store, "create_report", { ...actor, geoCell: reportGeoCell });
+      if (!rate.ok) return json(request, 429, { ok: false, error: "rate_limited" });
+    }
 
     const ownerToken = validClientToken(input.ownerToken) ? input.ownerToken : randomBase64Url(32);
     const contact = normalizeContact(input.reporterContact);
@@ -109,6 +120,12 @@ app.http("reportsCreate", {
     return reportCreatedResponse(request, updated, ownerToken, 201);
   }
 });
+
+function optionalAdmin(request: HttpRequest): { ok: true; requested: true; actorHash: string } | { ok: false; requested: false } | { ok: false; requested: true; response: HttpResponseInit } {
+  if (!request.headers.get("authorization") && !request.headers.get("x-admin-token")) return { ok: false, requested: false };
+  const admin = requireAdmin(request);
+  return admin.ok ? { ...admin, requested: true } : { ...admin, requested: true };
+}
 
 function reportCreatedResponse(request: HttpRequest, report: Report, ownerToken: string, status: number): HttpResponseInit {
   const publicUrl = `${env("PUBLIC_APP_URL", "http://localhost:5173")}/caso/${report.code}`;

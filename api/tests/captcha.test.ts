@@ -55,3 +55,10 @@ test("public update endpoints require human captcha", () => {
     assert.match(source, /validateCaptcha\(input\)/, file);
   }
 });
+
+test("report import bypass is admin-gated", () => {
+  const source = readFileSync("src/functions/reportsCreate.ts", "utf8");
+  assert.match(source, /const admin = optionalAdmin\(request\)/);
+  assert.match(source, /if \(admin\.requested && !admin\.ok\) return admin\.response/);
+  assert.match(source, /if \(!admin\.ok\) \{[\s\S]*verifyChallenge\(input\.challenge[\s\S]*validateCaptcha\(input\)/);
+});
