@@ -1665,7 +1665,7 @@ function AppFooter() {
         <a href="https://build4venezuela.com/" target="_blank" rel="noreferrer">Build4Venezuela</a>
         <a href="https://build4venezuela.com/en/p/vidas-ve" target="_blank" rel="noreferrer">Difunde</a>
       </div>
-      <a className="footerContact" href="mailto:aldoapicella@outlook.com">Contacto: Aldo Apicella</a>
+      <a className="footerContact" href="mailto:aldoapicella@outlook.com">Contacto: aldoapicella@outlook.com</a>
     </footer>
   );
 }
