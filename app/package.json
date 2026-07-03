@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "azure-maps-control": "^3.5.0",
-    "lucide-react": "^1.22.0",
+    "lucide-react": "^1.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
