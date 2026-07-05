@@ -4046,3 +4046,63 @@ button,
     grid-template-columns: 1fr;
   }
 }
+
+.shutdownPage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f8fafc;
+  color: #111827;
+}
+
+.shutdownPanel {
+  width: min(100%, 680px);
+}
+
+.shutdownEyebrow {
+  margin: 0 0 18px;
+  color: #0f766e;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.shutdownPanel h1 {
+  margin: 0 0 18px;
+  color: #101820;
+  font-size: clamp(42px, 8vw, 76px);
+  line-height: 0.95;
+}
+
+.shutdownPanel p {
+  margin: 0 0 16px;
+  max-width: 54ch;
+  color: #334155;
+  font-size: 20px;
+  line-height: 1.55;
+}
+
+.shutdownPanel strong {
+  color: #111827;
+}
+
+.shutdownPanel a {
+  display: inline-block;
+  margin-top: 18px;
+  color: #0f766e;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .shutdownPage {
+    place-items: start;
+    padding: 72px 20px 32px;
+  }
+
+  .shutdownPanel p,
+  .shutdownPanel a {
+    font-size: 17px;
+  }
+}
