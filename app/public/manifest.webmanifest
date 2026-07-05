@@ -1,7 +1,7 @@
 {
   "name": "VidasVE",
   "short_name": "VidasVE",
-  "description": "VidasVE cerró esta etapa y eliminará sus datos por privacidad.",
+  "description": "VidasVE dará de baja la página y eliminará datos por privacidad y protección a las victimas.",
   "lang": "es-VE",
   "start_url": "/",
   "scope": "/",

@@ -13,8 +13,7 @@ function ShutdownPage() {
           <strong>676 personas</strong>.
         </p>
         <p>
-          Daremos de baja esta página y eliminaremos los datos por privacidad y por el cierre de esta etapa
-          del proyecto.
+          Daremos de baja esta página y eliminaremos los datos por privacidad y por protección a las victimas.
         </p>
         <a href="https://build4venezuela.com/" target="_blank" rel="noreferrer">
           Apoyar otras iniciativas en Build4Venezuela

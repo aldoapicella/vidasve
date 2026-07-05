@@ -12,6 +12,7 @@ test("shows shutdown message without calling the API", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Gracias a todos." })).toBeVisible();
   await expect(page.getByText("1.077 reportes")).toBeVisible();
   await expect(page.getByText("676 personas")).toBeVisible();
+  await expect(page.getByText(/protección a las victimas/)).toBeVisible();
   await expect(page.getByRole("link", { name: /Build4Venezuela/ })).toHaveAttribute("href", "https://build4venezuela.com/");
   await expectNoHorizontalOverflow(page);
   expect(apiRequests).toEqual([]);
